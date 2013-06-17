@@ -1,5 +1,5 @@
 #include <math.h>
-#include <kaapic.h>
+#include <tbb/tbb.h>
 #include <float.h>
 #include <getopt.h>
 #include <stdlib.h>
@@ -9,68 +9,68 @@
 #include <sys/time.h>
 #include <assert.h>
 
-
-static inline void kaapiMult1D(
-    int start, int end, int tid, int m, int n,
-    unsigned int *c, const unsigned int *a, const unsigned int *b
-                              )
-{
-  int i, j, k;
-  unsigned int sum;
-  for (i = start; i < end; ++i) {
-    for (j = 0; j < n; ++j) {
-      sum = 0;
-      for (k = 0; k < m; ++k) {
-        sum +=  a[k+i*m] * b[k+j*m];
-      }
-      c[j+i*m]  = sum;
-    }
-  }
-}
+#include "mat-elim-tools.h"
 
 // multiplies A*B^T and stores it in *this
-void mult(int l, int m, int n, int thrds, int bs) {
+void mult(int l,int m,int n, int thrds, int bs) {
 
   //C.resize(l*m);
-  printf("Matrix Multiplication\n");
+  printf("Naive Gaussian Elimination\n");
   struct timeval start, stop;
   clock_t cStart, cStop;
   int i, j, k;
+  // open mp stuff
+  int threadNumber  = thrds;
+  int blocksize     = bs;
+
   unsigned int *a   = (unsigned int *)malloc(sizeof(unsigned int) * (l * m));
-  unsigned int *b   = (unsigned int *)malloc(sizeof(unsigned int) * (n * m));
-  unsigned int *c   = (unsigned int *)malloc(sizeof(unsigned int) * (l * n));
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
     a[i]  = rand();
   }
-  for (i=0; i< n*m; i++) {
-    b[i]  = rand();
-  }
-  unsigned sum = 0;
+ 
+  unsigned int boundary = (l > m) ? m : l;
+  unsigned int inv, mult;
+  unsigned int prime = 65521;
 
-  // kaapic stuff
-  int blocksize     = bs;
-  int threadNumber  = thrds;
-  kaapic_foreach_attr_t attr;
-  kaapic_init(1);
-  kaapic_foreach_attr_init(&attr);
-  kaapic_foreach_attr_set_grains(&attr, blocksize, blocksize);
-
+  //unsigned sum = 0;
+  if (thrds <= 0)
+    thrds  = tbb::task_scheduler_init::default_num_threads();
+  tbb::task_scheduler_init init(thrds);
+  tbb::affinity_partitioner ap;
   gettimeofday(&start, NULL);
   cStart  = clock();
 
-  kaapic_foreach(0, l, &attr, 5, kaapiMult1D, m, n, c, a, b);
-
+  for (i = 0; i < boundary; ++i) {
+    printf("i %d\n",i);
+    inv  = negInverseModP(a[i+i*m], prime);
+    printf("i %d\n",i);
+    tbb::parallel_for(tbb::blocked_range<int>(i+1,l,bs),
+    [&] (const tbb::blocked_range<int> &r) {
+      for (j = r.begin(); j != r.end(); ++j) {
+        printf("j %d\n",j);
+        mult  = a[i+j*m] * inv;
+        printf("mult %d\n",mult);
+        for (k= i+1; k < m; ++k) {
+          printf("k %d\n",k);
+          a[k+j*m]  +=  a[k+i*m] * mult;
+          printf("k3 %d\n",k);
+        }
+      }
+    }, ap);
+  }
   gettimeofday(&stop, NULL);
   cStop = clock();
-
-  kaapic_finalize();
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()
 
   double flops = 0;
   flops = (double)(2) * l * m * n;
+  printf("l %d\n",l);
+  printf("m %d\n",m);
+  printf("n %d\n",n);
+  printf("flops: %f\n",flops);
   float epsilon = 0.0000000001;
   double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
                     (stop.tv_usec - start.tv_usec)) / 1e6;
@@ -81,9 +81,9 @@ void mult(int l, int m, int n, int thrds, int bs) {
   int digits = sprintf(buffer,"%.0f",cputime);
   double ratio = cputime/realtime;
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Method:           KAAPIC\n");
+  printf("Method:           Intel TBB 1D auto partitioner\n");
   printf("#Threads:         %d\n", threadNumber);
-  printf("Chunk size:       %d\n", bs);
+  printf("Blocksize:        %d\n", bs);
   printf("Real time:        %.4f sec\n", realtime);
   printf("CPU time:         %.4f sec\n", cputime);
   if (cputime > epsilon)
@@ -96,7 +96,7 @@ void mult(int l, int m, int n, int thrds, int bs) {
 int main(int argc, char *argv[]) {
   int opt;
   // default values
-  int l = 2000, m = 2000, n = 2000, t=1, bs=2;
+  int l = 2000, m = 2000, n = 2000, t=1, bs=100;
   // biggest prime < 2^16
 
   /* 

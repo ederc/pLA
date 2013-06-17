@@ -1,5 +1,5 @@
 #include <math.h>
-#include <omp.h>
+#include <pthread.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,50 +10,113 @@
 
 #include "mat-elim-tools.h"
 
+struct paramsElim {
+  unsigned int *a;
+  int size;
+  unsigned int inv;
+  unsigned int prime;
+  unsigned int index;
+  unsigned int start;
+  unsigned int m;
+  unsigned int n;
+  int tid;
+};
+
+struct paramsCoElim {
+  unsigned int *M;
+  unsigned int* neg_inv_piv;
+  unsigned int size;
+  unsigned int  prime;
+  unsigned int rows;
+  unsigned int cols;
+  unsigned int blocksize;
+  unsigned int i1;
+  unsigned int i2;
+  unsigned int j1;
+  unsigned int j2;
+  unsigned int k1;
+  unsigned int k2;
+  int nthrds;
+};
+
+
+void *elimPTHRD(void *p) {
+  struct paramsElim *_p = (struct paramsElim *)p;
+  int start           = _p->start + _p->index;
+  int end             = start + _p->size;
+  int n               = _p->n;
+  int i               = _p->index;
+  unsigned int prime  = _p->prime;
+  unsigned int inv    = _p->inv;
+  unsigned int mult;
+  int j, k;
+  for (j = start+1; j < end+1; ++j) {
+    mult  = (_p->a[i+j*n] * inv);// % prime;
+    for (k = i+1; k < n; ++k) {
+      _p->a[k+j*n]  +=  _p->a[k+i*n] * mult;
+      //_p->a[k+j*n]  %=  prime;
+    }
+  }
+  return 0;
+}
+
 // multiplies A*B^T and stores it in *this
 void elim(int l,int m,int thrds,int bs) {
 
   printf("Naive Gaussian Elimination\n");
   struct timeval start, stop;
   clock_t cStart, cStop;
-  int i, j, k;
-  unsigned int prime = 65521;
-  // open mp stuff
+  int i, j, k, t;
+  // holds thread information
+  pthread_t threads[thrds];
+  struct paramsElim *thread_params = (struct paramsElim *) malloc(thrds * sizeof(struct paramsElim));
+  unsigned int chunkSize;
   int threadNumber  = thrds;
-  int blocksize     = bs;
+  unsigned int pad;
+  unsigned int ctr;
 
   unsigned int *a = (unsigned int *)malloc(sizeof(unsigned int) * (l * m));
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
     a[i]  = rand();
   }
-  unsigned int sum = 0;
-  if (thrds > 0)
-    omp_set_num_threads(thrds);
  
   unsigned int boundary = (l > m) ? m : l;
-  unsigned int inv, mult;
+  unsigned int inv;
+  unsigned int prime = 65521;
 
   gettimeofday(&start, NULL);
   cStart  = clock();
   
   for (i = 0; i < boundary; ++i) {
-    inv = negInverseModP(a[i+i*m], prime);
-#pragma omp parallel shared(a) private(mult)
-{
-#pragma omp master 
-  {
-    threadNumber = omp_get_num_threads();
-  }
-#pragma omp for schedule(dynamic,bs) private(j,k)
-    for (j = i+1; j < l; ++j) {
-      mult = a[i+j*m] * inv;
-      for (k = i+1; k < m; ++k) {
-        a[k+j*m]  += a[k+i*m] * mult;
+    chunkSize = (m - i - 1) / thrds;
+    pad       = (m - i - 1) % thrds;
+    ctr = 0;
+    for (t = 0; t < thrds; ++t) {
+      thread_params[t].a      = a;
+      thread_params[t].prime  = prime;
+      thread_params[t].index  = i;
+      if (t < pad) {
+        thread_params[t].size   = chunkSize + 1;
+        thread_params[t].start  = ctr;
+        ctr +=  chunkSize + 1;
+      } else {
+        thread_params[t].size = chunkSize;
+        thread_params[t].start  = ctr;
+        ctr +=  chunkSize;
       }
+      thread_params[t].n    = m;
+      thread_params[t].inv  = inv;
+      // real computation
+      pthread_create(&threads[t], NULL, elimPTHRD, (void *) &thread_params[t]);
     }
+
+    // join threads back again
+    for (t = 0; t < thrds; ++t)
+      pthread_join(threads[t], NULL);
   }
-}
+  free(thread_params);
+
   gettimeofday(&stop, NULL);
   cStop = clock();
   // compute FLOPS:
@@ -72,7 +135,7 @@ void elim(int l,int m,int thrds,int bs) {
   int digits = sprintf(buffer,"%.0f",cputime);
   double ratio = cputime/realtime;
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Method:           Open MP\n");
+  printf("Method:           pthreads\n");
   printf("#Threads:         %d\n", threadNumber);
   printf("Chunk size:       %d\n", bs);
   printf("Real time:        %.4f sec\n", realtime);

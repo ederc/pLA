@@ -17,6 +17,7 @@ void elim(int l,int m) {
   struct timeval start, stop;
   clock_t cStart, cStop;
   int i, j, k;
+  unsigned int prime = 65521;
   unsigned int *a = (unsigned int *)malloc(sizeof(unsigned int) * (l * m));
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
@@ -31,7 +32,7 @@ void elim(int l,int m) {
   cStart  = clock();
   
   for (i = 0; i < boundary; ++i) {
-    inv = negInverseModP(a[i+i*m]);
+    inv = negInverseModP(a[i+i*m], prime);
     for (j = i+1; j < l; ++j) {
       mult = a[i+j*m] * inv;
       for (k = i+1; k < m; ++k) {
