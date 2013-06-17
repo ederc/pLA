@@ -1,0 +1,14 @@
+MAT MULT
+--------
+
+OVERALL:
+1.  Do not use -lm !
+2.  Use chunk size 1 for open mp
+
+SEQ:
+gcc -O3 -funroll-loops -mmmx -msse -msse2 -msse3 -msse4.1 -msse4.2 -mavx -o mult mat-mult.c
+OMP:
+gcc -O3 -funroll-loops -mmmx -msse -msse2 -msse3 -msse4.1 -msse4.2 -mavx
+-fopenmp -o mult-omp mat-mult-omp.c
+TBB:
+

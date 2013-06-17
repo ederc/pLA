@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: pLA
+Description: Parallel (exact) Linead Agebra.
+Version: @PACKAGE_VERSION@
+Libs: -L${libdir} -lpla -lm
+Cflags: -I${includedir}/lpla @AM_CFLAGS@ 

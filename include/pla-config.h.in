@@ -1,0 +1,363 @@
+/* include/pla-config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* it is a macro in order to print out the correct file and line */
+#undef ASSERT
+
+/* "atomic(9) operations as provided on FreeBSD" */
+#undef ATOMIC9
+
+/* bitsize of char */
+#undef BIT_SIZEOF_CHAR
+
+/* depends on bitsize of char and size of long */
+#undef BIT_SIZEOF_LONG
+
+/* "not silencing irrelevant compiler warnings by default */
+#undef CC_SILENCE
+
+/* cache line size in bytes ( default 64 byte ) */
+#undef CPU_CACHE_LINE
+
+/* L1 cache size */
+#undef CPU_L1_CACHE
+
+/* L2 cache size */
+#undef CPU_L2_CACHE
+
+/* "spinwait macro for pLA" */
+#undef CPU_SPINWAIT
+
+/* dss available */
+#undef DSS
+
+/* Define to dummy `main' function (if any) required to link to the Fortran
+   libraries. */
+#undef F77_DUMMY_MAIN
+
+/* Define to a macro mangling the given Fortan function name */
+#undef F77_FUNC
+
+/* Define if F77 and FC dummy `main' functions are identical. */
+#undef FC_DUMMY_MAIN_EQ_F77
+
+/* junk / zero filling enabled */
+#undef FILL
+
+/* "__sync_{addsub}_and_fetch() " */
+#undef FORCE_SYNC_COMPARE_AND_SWAP_4
+
+/* "__sync_{addsub}_and_fetch() " */
+#undef FORCE_SYNC_COMPARE_AND_SWAP_8
+
+/* Define if you have a ATLAS library. */
+#undef HAVE_ATLAS
+
+/* "check if __attribute__ syntax is supported" */
+#undef HAVE_ATTR
+
+/* Support AVX (Advanced Vector Extensions) instructions */
+#undef HAVE_AVX
+
+/* Define that architecture uses big endian storage */
+#undef HAVE_BIG_ENDIAN
+
+/* Define if you have a BLAS library. */
+#undef HAVE_BLAS
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the `getpagesize' function. */
+#undef HAVE_GETPAGESIZE
+
+/* "hwloc available." */
+#undef HAVE_HWLOC
+
+/* Define if you have an Intel MKL library. */
+#undef HAVE_INTEL_MKL
+
+/* "Intel TBB available." */
+#undef HAVE_INTEL_TBB
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* "KAAPI available." */
+#undef HAVE_KAAPI
+
+/* "KAAPIC available." */
+#undef HAVE_KAAPIC
+
+/* "KAAPI++ available." */
+#undef HAVE_KAAPIPP
+
+/* Define if you have LAPACK library. */
+#undef HAVE_LAPACK
+
+/* Define that architecture uses little endian storage */
+#undef HAVE_LITTLE_ENDIAN
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have a working `mmap' system call. */
+#undef HAVE_MMAP
+
+/* Support MMX instructions */
+#undef HAVE_MMX
+
+/* Define if you have an OpenBLAS library. */
+#undef HAVE_OPENBLAS
+
+/* Define if OpenMP is enabled */
+#undef HAVE_OPENMP
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#undef HAVE_PTHREAD_H
+
+/* sbrk available ? */
+#undef HAVE_SBRK
+
+/* Support SSE (Streaming SIMD Extensions) instructions */
+#undef HAVE_SSE
+
+/* Support SSE2 (Streaming SIMD Extensions 2) instructions */
+#undef HAVE_SSE2
+
+/* Support SSE3 (Streaming SIMD Extensions 3) instructions */
+#undef HAVE_SSE3
+
+/* Support SSE4.1 (Streaming SIMD Extensions 4.1) instructions */
+#undef HAVE_SSE41
+
+/* Support SSE4.2 (Streaming SIMD Extensions 4.2) instructions */
+#undef HAVE_SSE42
+
+/* Support SSSE3 (Supplemental Streaming SIMD Extensions 3) instructions */
+#undef HAVE_SSSE3
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/param.h> header file. */
+#undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Depending on LOG_BIT_SIZEOF_LONG */
+#undef INDEX_PAGE_SHIFT
+
+/* Canonical 16-bit data type */
+#undef INT16
+
+/* Canonical 32-bit data type */
+#undef INT32
+
+/* Canonical 64-bit data type */
+#undef INT64
+
+/* Canonical 8-bit data type */
+#undef INT8
+
+/* "darwin related configuratioin" */
+#undef IVSALLOC
+
+/* "Macro for lazy locking: Lock only if multi-threaded" */
+#undef LAZY_LOCK
+
+/* Depending on SIZEOF_LONG */
+#undef LOG_BIT_SIZEOF_LONG
+
+/* Log bit size of system page */
+#undef LOG_BIT_SIZEOF_SYSTEM_PAGE
+
+/* log cache line size */
+#undef LOG_CPU_CACHE_LINE
+
+/* log bitsize of alignment of memory allocated by pla */
+#undef LOG_SIZEOF_ALIGNMENT
+
+/* Depending on SIZEOF_LONG */
+#undef LOG_SIZEOF_LONG
+
+/* maximum of two comparable values */
+#undef MAX
+
+/* depending on the chosen size classes and their subdivision */
+#undef MAX_BIN_INDEX
+
+/* Depending on SIZEOF_LONG */
+#undef MAX_SMALL_BLOCK_SIZE
+
+/* minimum of two comparable values */
+#undef MIN
+
+/* default minimal value of the number of pages allocated for a new region */
+#undef MIN_NUMBER_PAGES_PER_REGION
+
+/* "checks if BSD-specific _pthread_mutex_init_calloc_cb() exists" */
+#undef MUTEX_INIT_CB
+
+/* Define to 1 if assertions should be disabled. */
+#undef NDEBUG
+
+/* Jump to next entry */
+#undef NEXT
+
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+#undef NO_MINUS_C_MINUS_O
+
+/* "atomic(3) operations as provided on Darwin / Mac OS X" */
+#undef OSATOMIC
+
+/* "spinlock(3) operations as provided on Darwin / Mac OS X" */
+#undef OSSPIN
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Depending on SIZEOF_LONG */
+#undef PAGES_PER_REGION
+
+/* "" */
+#undef PURGE_MADVISE_DONTNEED
+
+/* "" */
+#undef PURGE_MADVISE_FREE
+
+/* bitsize of alignment of memory allocated by pla */
+#undef SIZEOF_ALIGNMENT
+
+/* bitsize of alignment of memory allocated by pla */
+#undef SIZEOF_ALIGNMENT_MINUS_ONE
+
+/* The size of `char', as computed by sizeof. */
+#undef SIZEOF_CHAR
+
+/* Depending on LOG_BIT_SIZEOF_LONG */
+#undef SIZEOF_INDEX_PAGE_MINUS_ONE
+
+/* The size of `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* Depending on SIZEOF_SYSTEM_PAGE and SIZEOF_PAGE_HEADER */
+#undef SIZEOF_PAGE
+
+/* Depending on SIZEOF_LONG and SIZEOF_VOIDP */
+#undef SIZEOF_PAGE_HEADER
+
+/* The size of `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
+/* size of strict alignment of memory allocated by pla */
+#undef SIZEOF_STRICT_ALIGNMENT
+
+/* Size of system page */
+#undef SIZEOF_SYSTEM_PAGE
+
+/* The size of `void*', as computed by sizeof. */
+#undef SIZEOF_VOIDP
+
+/* depending on sizeof(void*) */
+#undef SIZEOF_VOIDP_MINUS_ONE
+
+/* The size of `__int64', as computed by sizeof. */
+#undef SIZEOF___INT64
+
+/* The size of `__uint128_t', as computed by sizeof. */
+#undef SIZEOF___UINT128_T
+
+/* The size of `__uint256_t', as computed by sizeof. */
+#undef SIZEOF___UINT256_T
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* macro stringification mainly used by xassert */
+#undef STRINGIFICATION
+
+/* "" */
+#undef THREADED_INIT
+
+/* "thread cleanup for pLA" */
+#undef THREAD_CLEANUP
+
+/* "Macro for using thread-local storage in pLA." */
+#undef TLS
+
+/* "model of tls attribute support ( clang 3.0 still lacks support )" */
+#undef TLS_MODEL
+
+/* Canonical 128-bit data type */
+#undef UINT128
+
+/* Canonical 256-bit data type */
+#undef UINT256
+
+/* valloc does not use mmap */
+#undef VALLOC
+
+/* Version number of package */
+#undef VERSION
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* "darwin related configuratioin" */
+#undef ZONE
+
+/* "szone version in darwin: there was a jump from 3 to 6 between OS X 10.5.x
+   and 10.6" */
+#undef ZONE_VERSION
