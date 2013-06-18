@@ -117,8 +117,8 @@ AC_DEFUN([AX_CACHE_SIZE],
     ax_l2_size=$(($ax_l2_size*1024))
     AC_MSG_RESULT( $ax_l2_size Bytes)
 
-    F4RT_CPU_L1_CACHE=${ax_l1_size}
-    F4RT_CPU_L2_CACHE=${ax_l2_size}
-    AC_SUBST(F4RT_CPU_L1_CACHE)
-    AC_SUBST(F4RT_CPU_L2_CACHE)
+    PLA_CPU_L1_CACHE=${ax_l1_size}
+    PLA_CPU_L2_CACHE=${ax_l2_size}
+    AC_SUBST(PLA_CPU_L1_CACHE)
+    AC_SUBST(PLA_CPU_L2_CACHE)
 ])
