@@ -46,8 +46,8 @@ m4/ltversion.m4
 src/dense-mult
 src/libla-bencher.la
 src/random*
-include/la-bencher-config.h
-include/la-bencher-config.h.in
+include/pla-config.h
+include/pla-config.h.in
 include/stamp-h1
 doc/index.html
 doc/*.html

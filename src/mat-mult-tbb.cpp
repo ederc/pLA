@@ -60,10 +60,6 @@ void mult(int l,int m,int n, int thrds, int bs) {
 
   double flops = 0;
   flops = (double)(2) * l * m * n;
-  printf("l %d\n",l);
-  printf("m %d\n",m);
-  printf("n %d\n",n);
-  printf("flops: %f\n",flops);
   float epsilon = 0.0000000001;
   double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
                     (stop.tv_usec - start.tv_usec)) / 1e6;

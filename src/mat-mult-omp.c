@@ -32,7 +32,7 @@ void mult(int l, int m, int n, int thrds, int bs) {
   for (i=0; i< n*m; i++) {
     b[i]  = rand();
   }
-  unsigned sum = 0;
+  unsigned long sum = 0;
   if (thrds > 0)
     omp_set_num_threads(thrds);
   gettimeofday(&start, NULL);
@@ -50,7 +50,7 @@ void mult(int l, int m, int n, int thrds, int bs) {
       for (k = 0; k < m; k++) {
         sum += a[k+i*m] * b[k+j*m];
       }
-      c[j+i*n] = sum;
+      c[j+i*n] = (unsigned int) sum;
     }
   }
 }

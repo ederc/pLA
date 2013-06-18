@@ -61,7 +61,7 @@ AC_CACHE_CHECK([whether $1 is compilable],
 
 
 AC_PREREQ(2.50)
-AC_INIT(pLA,0.0.1,ederc@mathematik.uni-kl.de)
+AC_INIT(pLA,0.0.1,Christian.Eder@inria.fr)
 AM_INIT_AUTOMAKE([1.8 gnu no-dependencies])
 AM_CONFIG_HEADER([include/pla-config.h])
 AX_PREFIX_CONFIG_H(include/pla-config.h, __PLA)
@@ -76,7 +76,7 @@ AM_OUTPUT_DEPENDENCY_COMMANDS
 
 # Give a sane default for CFLAGS and CXXFLAGS
 # The sane thing is to define the flags differenly in tests, examples, interfaces, etc.  -bds
-#DEFAULT_CFLAGS="-O3 -Wall"
+#DEFAULT_CFLAGS="-O2 -Wall"
 
 #CFLAGS=${CFLAGS:-$DEFAULT_CFLAGS}
 #CXXFLAGS=${CXXFLAGS:-$DEFAULT_CFLAGS}
@@ -85,7 +85,7 @@ AM_OUTPUT_DEPENDENCY_COMMANDS
 AC_SUBST([MKDIR_P])
 AC_STDC_HEADERS
 #LT_INIT()
-#LT_INIT([disable-shared])
+LT_INIT([disable-shared])
 AM_PROG_CC_C_O
 AC_PROG_CC_STDC
 
@@ -130,6 +130,7 @@ fi
 if test "x$CFLAGS" = "x" ; then
   no_CFLAGS="yes"
   if test "x$GCC" = "xyes" ; then
+    X_CFLAGS_APPEND([-std=gnu99])
     X_CFLAGS_APPEND([-Wall])
     X_CFLAGS_APPEND([-pipe])
     X_CDEBUGFLAGS_APPEND([-g3])
@@ -174,7 +175,7 @@ if test "x$GCC" = "xyes" ; then
   X_CFLAGS_APPEND([-funroll-loops])
   X_CDEBUGFLAGS_APPEND([-O0])
 elif test "x$x_cv_msvc" = "xyes" ; then
-  X_CFLAGS_APPEND([-O3])
+  X_CFLAGS_APPEND([-O2])
   X_CDEBUGFLAGS_APPEND([-O0])
 else
   X_CFLAGS_APPEND([-O])
@@ -240,15 +241,15 @@ dnl Search for KAAPI
 dnl Search for KAAPIC
 AC_CHECK_LIB([kaapic], [main], [
     AC_DEFINE([HAVE_KAAPIC],[],"KAAPIC available.")
-    enable_kaapic=yes
+    enable_kaapic=1
     ], [echo "libkaapic not found."])
-
-AM_CONDITIONAL(ENABLE_KAAPIC, test "x$enable_kaapic" = xyes)
 
 dnl Search for KAAPI++
  AC_CHECK_LIB([kaapi++], [main], [
     AC_DEFINE([HAVE_KAAPIPP],[],"KAAPI++ available.")
     ], [echo "libkaapi++ not found."])
+
+AM_CONDITIONAL(ENABLE_KAAPIC,[test "$enable_kaapic" -eq 1]])
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.
