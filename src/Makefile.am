@@ -7,10 +7,6 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 INCLUDES=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
 
-AM_CXXFLAGS=
-AM_CPPFLAGS=
-AM_CFLAGS=
-
 bin_PROGRAMS = 	\
 	mult-seq 			\
 	mult-omp 			\
@@ -23,10 +19,10 @@ bin_PROGRAMS = 	\
 	elim-pthrd		\
 	elim-tbb
 
-mult_seq_CFLAGS= 
+mult_seq_CFLAGS= $(AM_CFLAGS)
 mult_seq_SOURCES= 	\
 	mat-mult-seq.c
-elim_seq_CFLAGS= 
+elim_seq_CFLAGS= $(AM_CFLAGS)
 elim_seq_SOURCES= 	\
 	mat-elim-seq.c
 
