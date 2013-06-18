@@ -39,7 +39,6 @@ void elim(int l,int m,int thrds,int bs) {
 
   gettimeofday(&start, NULL);
   cStart  = clock();
-  
   for (i = 0; i < boundary; ++i) {
     inv = negInverseModP(a[i+i*m], prime);
 #pragma omp parallel shared(a) private(mult)

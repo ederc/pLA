@@ -36,8 +36,8 @@ double countGEPFlops(unsigned int m, unsigned int n) {
   double res = 0;
   unsigned int i;
   for (i = 1; i <= boundary; ++i) {
-    res +=  (2*(n-i)+1)*(m-i);
-    //res +=  (2*(n-i)+1+logp)*(m-i) + logp * (n-i) * (m-i);
+    //res +=  (2*(n-i)+1)*(m-i);
+    res +=  (2*(n-i)+1+logp)*(m-i) + logp * (n-i) * (m-i);
   }
   return res;
 }

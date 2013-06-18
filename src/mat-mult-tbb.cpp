@@ -39,19 +39,17 @@ void mult(int l,int m,int n, int thrds, int bs) {
   tbb::affinity_partitioner ap;
   gettimeofday(&start, NULL);
   cStart  = clock();
-
-  tbb::parallel_for(tbb::blocked_range<size_t>(0,l,bs),
-  [&] (const tbb::blocked_range<size_t> &r) {
-    for (i = r.begin(); i != r.end(); ++i) {
-      for (j = 0; j < n; ++j) {
-        unsigned sum = 0;
-        for (k = 0; k < m; k++) {
-          sum += a[k+i*m] * b[k+j*m];
-        }
-        c[j+i*n] = sum;
-      }
-    }
-  }, ap);
+  tbb::parallel_for(tbb::blocked_range<size_t>(0, l, blocksize),
+      [&](const tbb::blocked_range<size_t>& r)
+      {
+        for( size_t i=r.begin(); i!=r.end(); ++i )
+          for( size_t j=0; j!=n; ++j ) {
+            unsigned int sum = 0;
+            for( size_t k=0; k<m; ++k )
+              sum += a[k+i*m] * b[k+j*m];
+            c[j+i*n]  = sum;
+          }
+      });
   gettimeofday(&stop, NULL);
   cStop = clock();
   // compute FLOPS:
