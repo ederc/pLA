@@ -367,10 +367,6 @@ void elim_co(int l,int m, int bs) {
 }
 
 
-
-
-
-
 int main(int argc, char *argv[]) {
   int opt;
   // default values
@@ -385,7 +381,7 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "l:m:bc:")) != -1) {
+  while((opt = getopt(argc, argv, "l:m:b:c:")) != -1) {
     switch(opt) {
       case 'l': 
         l = atoi(strdup(optarg));
