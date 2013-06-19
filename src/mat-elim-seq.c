@@ -366,6 +366,24 @@ void elim_co(int l,int m, int bs) {
   printf("---------------------------------------------------\n");
 }
 
+void print_help(int exval) {
+  printf("DESCRIPTION\n");
+  printf("       Computes the Gaussian Elimination of a matrix A with\n");
+  printf("       unsigned integer entries.\n");
+
+  printf("OPTIONS\n");
+  printf("       -b SIZE   blocksize\n");
+  printf("                 default: L1 cache size\n");
+  printf("       -c        cache-oblivious Gaussian Elimination\n");
+  printf("       -h        print help\n");
+  printf("       -l ROWS   row size of matrix A\n");
+  printf("                 default: 2000\n");
+  printf("       -m COLS   column size of matrix A\n");
+  printf("                 default: 2000\n");
+
+  exit(exval);
+}
+
 
 int main(int argc, char *argv[]) {
   int opt;
@@ -381,8 +399,11 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "l:m:b:c:")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:b:c")) != -1) {
     switch(opt) {
+      case 'h':
+        print_help(0);
+        break;
       case 'l': 
         l = atoi(strdup(optarg));
         break;

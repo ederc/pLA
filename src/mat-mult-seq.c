@@ -75,11 +75,11 @@ void print_help(int exval) {
 
   printf("OPTIONS\n");
   printf("       -h        print help\n");
-  printf("       -l        row size of matrix A\n");
+  printf("       -l ROWSA  row size of matrix A\n");
   printf("                 default: 2000\n");
-  printf("       -m        column size of matrix A and row size of matrix B\n");
+  printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
   printf("                 default: 2000\n");
-  printf("       -n        column size of matrix B\n");
+  printf("       -n COLSB  column size of matrix B\n");
   printf("                 default: 2000\n");
 
   exit(exval);

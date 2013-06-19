@@ -901,6 +901,29 @@ void elim_co(int l,int m, int thrds, int bs) {
   printf("---------------------------------------------------\n");
 }
 
+void print_help(int exval) {
+  printf("DESCRIPTION\n");
+  printf("       Computes the Gaussian Elimination of a matrix A with\n");
+  printf("       unsigned integer entries.\n");
+  printf("       It uses the KAAPIC parallel scheduler.\n");
+
+  printf("OPTIONS\n");
+  printf("       -b SIZE   block- resp. chunksize\n");
+  printf("                 default: L1 cache size\n");
+  printf("       -c        cache-oblivious Gaussian Elimination\n");
+  printf("       -h        print help\n");
+  printf("       -l ROWSA  row size of matrix A\n");
+  printf("                 default: 2000\n");
+  printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
+  printf("                 default: 2000\n");
+  printf("       -t THRDS  number of threads\n");
+  printf("                 default: 1\n");
+  printf("                 Note that you have to put 'KAAPI_CPUCOUNT=value of t you want'\n"); 
+  printf("                 in front of your call, otherwise the number of cores is not set\n");
+
+  exit(exval);
+}
+
 
 int main(int argc, char *argv[]) {
   int opt;
@@ -916,8 +939,11 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "l:m:t:b:c:")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:t:b:c")) != -1) {
     switch(opt) {
+      case 'h':
+        print_help(0);
+        break;
       case 'l': 
         l = atoi(strdup(optarg));
         break;

@@ -3,7 +3,7 @@ Computed on the HPAC compute server.
 
 elim 8192 x 8192
 ----------------
-tbb:    192 for 16 cores
+tbb:    1 for 16 cores (auto, affine, simple)
 omp:    1 for 16 cores
 kaapi:  1 for 16 cores
 pthrd:  192 for 64 cores 

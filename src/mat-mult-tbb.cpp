@@ -290,21 +290,21 @@ void mult_2d_simple(int l,int m,int n, int thrds, int bs) {
 void print_help(int exval) {
   printf("DESCRIPTION\n");
   printf("       Computes the matrix multiplication of two matrices A and B with\n");
-  printf("       unsigned integer entries. It uses the Open MP parallel scheduler.\n");
+  printf("       unsigned integer entries. It uses the Intel TBB parallel scheduler.\n");
 
   printf("OPTIONS\n");
-  printf("       -b        block- resp. chunksize\n");
+  printf("       -b SIZE   block- resp. chunksize\n");
   printf("                 default: 1\n");
   printf("       -h        print help\n");
-  printf("       -l        row size of matrix A\n");
+  printf("       -l ROWSA  row size of matrix A\n");
   printf("                 default: 2000\n");
-  printf("       -m        column size of matrix A and row size of matrix B\n");
+  printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
   printf("                 default: 2000\n");
-  printf("       -n        column size of matrix B\n");
+  printf("       -n COLSB  column size of matrix B\n");
   printf("                 default: 2000\n");
-  printf("       -t        number of threads\n");
+  printf("       -t THRDS  number of threads\n");
   printf("                 default: 1\n");
-  printf("       -v        version of the partitioner you want\n");
+  printf("       -v VERS   version of the partitioner you want\n");
   printf("                 0 = auto partitioner\n");
   printf("                 1 = affinity partitioner\n");
   printf("                 2 = simple partitioner\n");
