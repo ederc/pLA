@@ -13,7 +13,78 @@
 #include "mat-elim-tools.h"
 
 // multiplies A*B^T and stores it in *this
-void elim(int l,int m, int thrds, int bs) {
+void elim_auto(int l,int m, int thrds, int bs) {
+
+  //C.resize(l*m);
+  printf("Naive Gaussian Elimination\n");
+  struct timeval start, stop;
+  clock_t cStart, cStop;
+  int i;
+  // open mp stuff
+  int threadNumber  = thrds;
+  int blocksize     = bs;
+
+  unsigned int *a   = (unsigned int *)malloc(sizeof(unsigned int) * (l * m));
+  srand(time(NULL));
+  for (i=0; i< l*m; i++) {
+    a[i]  = rand();
+  }
+ 
+  unsigned int boundary = (l > m) ? m : l;
+  unsigned int inv, mult;
+  unsigned int prime = 65521;
+
+  //unsigned sum = 0;
+  if (thrds <= 0)
+    thrds  = tbb::task_scheduler_init::default_num_threads();
+  tbb::task_scheduler_init init(thrds);
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+
+  for (i = 0; i < boundary; ++i) {
+    inv  = negInverseModP(a[i+i*m], prime);
+    tbb::parallel_for(tbb::blocked_range<unsigned int>(i+1, l, blocksize),
+        [&](const tbb::blocked_range<unsigned int>& r)
+        {
+        for (unsigned int j = r.begin(); j != r.end(); ++j) {
+          mult  = a[i+j*m] * inv;// % prime;
+          for (unsigned int k = i+1; k < m; ++k) {
+            a[k+j*m] += a[k+i*m] *mult;
+          }
+        }
+        });
+  }
+  gettimeofday(&stop, NULL);
+  cStop = clock();
+  // compute FLOPS:
+  // assume addition and multiplication in the mult kernel are 2 operations
+  // done A.nRows() * B.nRows() * B.nCols()
+
+  double flops = 0;
+  flops = countGEPFlops(l, m);
+  float epsilon = 0.0000000001;
+  double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
+                    (stop.tv_usec - start.tv_usec)) / 1e6;
+  double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
+  char buffer[50];
+  // get digits before decimal point of cputime (the longest number) and setw
+  // with it: digits + 1 (point) + 4 (precision) 
+  int digits = sprintf(buffer,"%.0f",cputime);
+  double ratio = cputime/realtime;
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("Method:           Intel TBB 1D auto partitioner\n");
+  printf("#Threads:         %d\n", threadNumber);
+  printf("Blocksize:        %d\n", bs);
+  printf("Real time:        %.4f sec\n", realtime);
+  printf("CPU time:         %.4f sec\n", cputime);
+  if (cputime > epsilon)
+    printf("CPU/real time:    %.4f\n", ratio);
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
+  printf("---------------------------------------------------\n");
+}
+
+void elim_affine(int l,int m, int thrds, int bs) {
 
   //C.resize(l*m);
   printf("Naive Gaussian Elimination\n");
@@ -53,7 +124,7 @@ void elim(int l,int m, int thrds, int bs) {
             a[k+j*m] += a[k+i*m] *mult;
           }
         }
-        });
+        }, ap);
   }
   gettimeofday(&stop, NULL);
   cStop = clock();
@@ -73,7 +144,79 @@ void elim(int l,int m, int thrds, int bs) {
   int digits = sprintf(buffer,"%.0f",cputime);
   double ratio = cputime/realtime;
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Method:           Intel TBB 1D auto partitioner\n");
+  printf("Method:           Intel TBB 1D affinity partitioner\n");
+  printf("#Threads:         %d\n", threadNumber);
+  printf("Blocksize:        %d\n", bs);
+  printf("Real time:        %.4f sec\n", realtime);
+  printf("CPU time:         %.4f sec\n", cputime);
+  if (cputime > epsilon)
+    printf("CPU/real time:    %.4f\n", ratio);
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
+  printf("---------------------------------------------------\n");
+}
+
+void elim_simple(int l,int m, int thrds, int bs) {
+
+  //C.resize(l*m);
+  printf("Naive Gaussian Elimination\n");
+  struct timeval start, stop;
+  clock_t cStart, cStop;
+  int i;
+  // open mp stuff
+  int threadNumber  = thrds;
+  int blocksize     = bs;
+
+  unsigned int *a   = (unsigned int *)malloc(sizeof(unsigned int) * (l * m));
+  srand(time(NULL));
+  for (i=0; i< l*m; i++) {
+    a[i]  = rand();
+  }
+ 
+  unsigned int boundary = (l > m) ? m : l;
+  unsigned int inv, mult;
+  unsigned int prime = 65521;
+
+  //unsigned sum = 0;
+  if (thrds <= 0)
+    thrds  = tbb::task_scheduler_init::default_num_threads();
+  tbb::task_scheduler_init init(thrds);
+  tbb::simple_partitioner sp;
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+
+  for (i = 0; i < boundary; ++i) {
+    inv  = negInverseModP(a[i+i*m], prime);
+    tbb::parallel_for(tbb::blocked_range<unsigned int>(i+1, l, blocksize),
+        [&](const tbb::blocked_range<unsigned int>& r)
+        {
+        for (unsigned int j = r.begin(); j != r.end(); ++j) {
+          mult  = a[i+j*m] * inv;// % prime;
+          for (unsigned int k = i+1; k < m; ++k) {
+            a[k+j*m] += a[k+i*m] *mult;
+          }
+        }
+        }, sp);
+  }
+  gettimeofday(&stop, NULL);
+  cStop = clock();
+  // compute FLOPS:
+  // assume addition and multiplication in the mult kernel are 2 operations
+  // done A.nRows() * B.nRows() * B.nCols()
+
+  double flops = 0;
+  flops = countGEPFlops(l, m);
+  float epsilon = 0.0000000001;
+  double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
+                    (stop.tv_usec - start.tv_usec)) / 1e6;
+  double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
+  char buffer[50];
+  // get digits before decimal point of cputime (the longest number) and setw
+  // with it: digits + 1 (point) + 4 (precision) 
+  int digits = sprintf(buffer,"%.0f",cputime);
+  double ratio = cputime/realtime;
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("Method:           Intel TBB 1D simple partitioner\n");
   printf("#Threads:         %d\n", threadNumber);
   printf("Blocksize:        %d\n", bs);
   printf("Real time:        %.4f sec\n", realtime);
@@ -473,7 +616,7 @@ void elim_co(int l,int m, int thrds, int bs) {
 int main(int argc, char *argv[]) {
   int opt;
   // default values
-  int l = 2000, m = 2000, n = 2000, t=1, bs=0, c=0;
+  int l = 2000, m = 2000, n = 2000, t=1, bs=0, c=0,v=0;
   // biggest prime < 2^16
 
   /* 
@@ -484,7 +627,7 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "l:m:n:t:b:c:")) != -1) {
+  while((opt = getopt(argc, argv, "l:m:n:t:b:c:v:")) != -1) {
     switch(opt) {
       case 'l': 
         l = atoi(strdup(optarg));
@@ -504,13 +647,21 @@ int main(int argc, char *argv[]) {
       case 'c': 
         c = atoi(strdup(optarg));
         break;
+      case 'v': 
+        v = atoi(strdup(optarg));
+        break;
     }
   }
 
   if (c)
     elim_co(l,m,t,bs);
   else
-    elim(l,m,t,bs);
+    if (v == 0)
+      elim_auto(l,m,t,bs);
+    if (v == 1)
+      elim_affine(l,m,t,bs);
+    if (v == 2)
+      elim_simple(l,m,t,bs);
 
   return 0;
 }
