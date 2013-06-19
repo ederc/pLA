@@ -4,10 +4,10 @@ Computed on the HPAC compute server.
 elim 8192 x 8192
 ----------------
 tbb:    192 for 16 cores
-omp:    256 for 64 cores
-kaapi:  192 for 32 cores
+omp:    1 for 16 cores
+kaapi:  1 for 16 cores
 pthrd:  192 for 64 cores 
-seq:    256
+seq:    32
 
 Taking 256 one should get over the L1 Cache Size, still the 256 holds for omp
 and seq
@@ -28,5 +28,5 @@ mult 4094 x 4096 and 4096 x 4096
 tbb:    1 (auto), 1 (affine), 4 (simple), 1 (2d-simple)
 omp:    1
 kaapi:  64 on 32 cores
-pthrd:  16 on 32 cores
+pthrd:  1 on 16 cores
 seq:    no blocks available

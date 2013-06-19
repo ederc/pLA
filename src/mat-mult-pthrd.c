@@ -124,10 +124,31 @@ void mult(int l, int m, int n, int thrds, int bs) {
   printf("---------------------------------------------------\n");
 }
 
+void print_help(int exval) {
+  printf("DESCRIPTION\n");
+  printf("       Computes the matrix multiplication of two matrices A and B with\n");
+  printf("       unsigned integer entries. It uses pthreads.\n");
+
+  printf("OPTIONS\n");
+  printf("       -b        block- resp. chunksize\n");
+  printf("                 default: 1\n");
+  printf("       -h        print help\n");
+  printf("       -l        row size of matrix A\n");
+  printf("                 default: 2000\n");
+  printf("       -m        column size of matrix A and row size of matrix B\n");
+  printf("                 default: 2000\n");
+  printf("       -n        column size of matrix B\n");
+  printf("                 default: 2000\n");
+  printf("       -t        number of threads\n");
+  printf("                 default: 1\n");
+
+  exit(exval);
+}
+
 int main(int argc, char *argv[]) {
   int opt;
   // default values
-  int l = 2000, m = 2000, n = 2000, t=1, bs=100;
+  int l = 2000, m = 2000, n = 2000, t=1, bs=1;
   // biggest prime < 2^16
 
   /* 
@@ -138,8 +159,11 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "l:m:n:t:b:")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:n:t:b:")) != -1) {
     switch(opt) {
+      case 'h':
+        print_help(0);
+        break;
       case 'l': 
         l = atoi(strdup(optarg));
         break;
