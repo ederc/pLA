@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
         b = atoi(strdup(optarg));
         break;
       case 'c': 
-        c = atoi(strdup(optarg));
+        c = 1;
         break;
     }
   }

@@ -674,7 +674,7 @@ int main(int argc, char *argv[]) {
         bs = atoi(strdup(optarg));
         break;
       case 'c': 
-        c = atoi(strdup(optarg));
+        c = 1;
         break;
       case 'v': 
         v = atoi(strdup(optarg));

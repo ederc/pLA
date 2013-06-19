@@ -69,6 +69,7 @@ elim-omp
 elim-tbb
 elim-kaapi
 elim-pthrd
+tests/test*
 !tests/unit/Makefile.am
 !tests/unit/*.c
 !tests/unit/*.cpp
