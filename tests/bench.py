@@ -535,7 +535,7 @@ if args.plot:
 if int(args.inc) == -1:
   fig = pl.figure()
   ax = fig.add_subplot(111)
-  fig.suptitle('Speedup comared to best lowest thread variant', fontsize=10)
+  fig.suptitle('Speedup compared to best lowest thread variant', fontsize=10)
   if int(args.alg) == 1:
     pl.title('Mat Mult uint64 Matrix dimensions: '+dimensions[0]+
     ' x '+dimensions[1]+', '+dimensions[1]+' x '+dimensions[2], fontsize=8)
