@@ -85,7 +85,7 @@ AM_OUTPUT_DEPENDENCY_COMMANDS
 AC_SUBST([MKDIR_P])
 AC_STDC_HEADERS
 #LT_INIT()
-LT_INIT([disable-shared])
+#LT_INIT([disable-shared])
 AM_PROG_CC_C_O
 AC_PROG_CC_STDC
 
@@ -175,7 +175,7 @@ if test "x$GCC" = "xyes" ; then
   X_CFLAGS_APPEND([-funroll-loops])
   X_CDEBUGFLAGS_APPEND([-O0])
 elif test "x$x_cv_msvc" = "xyes" ; then
-  X_CFLAGS_APPEND([-O2])
+  X_CFLAGS_APPEND([-O3])
   X_CDEBUGFLAGS_APPEND([-O0])
 else
   X_CFLAGS_APPEND([-O])
@@ -183,7 +183,7 @@ else
 fi
 # SSE2 support
 AC_ARG_ENABLE([sse2],
-        AS_HELP_STRING([--disable-sse2], [don't use SSE2 instruction set.]),
+        AS_HELP_STRING([--disable-sse2], [do not use SSE2 instruction set.]),
 	, [if test "$x_wrapword" = "yes"; then enable_sse2="no"; else enable_sse2="yes"; fi])
 
 AS_IF([test "x$enable_sse2" != "xno"], [
@@ -206,7 +206,8 @@ AC_SUBST(PLA_HAVE_SSE2)
 
 
 AC_ARG_WITH(papi,
-    AS_HELP_STRING([--with-papi@<:@=PATH@:>@], [The PAPI install prefix, if configure can t find it.]),
+    AS_HELP_STRING([--with-papi@<:@=PATH@:>@], [The PAPI install prefix, if
+      configure cannott find it.]),
     [x_config_papi=$withval])
 
 dnl Search for hwloc
@@ -227,10 +228,10 @@ AX_LAPACK()
 dnl Search for Intel TBB
 AC_CHECK_LIB([tbb], [main], [
     AC_DEFINE([HAVE_INTEL_TBB],[],"Intel TBB available.")
-    enable_tbb=yes
+    enable_tbb=1
     ], [echo "libtbb not found."])
 
-AM_CONDITIONAL(ENABLE_TBB, test "x$enable_tbb" = xyes)
+AM_CONDITIONAL(ENABLE_TBB, test "$enable_tbb" -eq 1)
 
 
 dnl Search for KAAPI
@@ -240,8 +241,8 @@ dnl Search for KAAPI
 
 dnl Search for KAAPIC
 AC_CHECK_LIB([kaapic], [main], [
-    AC_DEFINE([HAVE_KAAPIC],[],"KAAPIC available.")
     enable_kaapic=1
+    AC_DEFINE([HAVE_KAAPIC],[],"KAAPIC available.")
     ], [echo "libkaapic not found."])
 
 dnl Search for KAAPI++
@@ -249,7 +250,7 @@ dnl Search for KAAPI++
     AC_DEFINE([HAVE_KAAPIPP],[],"KAAPI++ available.")
     ], [echo "libkaapi++ not found."])
 
-AM_CONDITIONAL(ENABLE_KAAPIC,[test "$enable_kaapic" -eq 1]])
+AM_CONDITIONAL(ENABLE_KAAPIC,test "$enable_kaapic" -eq 1)
 
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.

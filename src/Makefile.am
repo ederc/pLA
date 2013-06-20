@@ -9,15 +9,19 @@ INCLUDES=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
 
 bin_PROGRAMS = 	\
 	mult-seq 			\
-	mult-omp 			\
-	mult-tbb 			\
-	mult-pthrd	 	\
-	mult-kaapi 		\
 	elim-seq	 		\
+	mult-omp 			\
 	elim-omp 			\
-	elim-kaapi		\
-	elim-pthrd		\
-	elim-tbb
+	mult-pthrd	 	\
+	elim-pthrd
+if ENABLE_KAAPIC
+bin_PROGRAMS += mult-kaapi
+bin_PROGRAMS += elim-kaapi
+endif
+if ENABLE_TBB
+bin_PROGRAMS += mult-tbb
+bin_PROGRAMS += elim-tbb
+endif
 
 mult_seq_CFLAGS= $(AM_CFLAGS)
 mult_seq_SOURCES= 	\
@@ -33,6 +37,7 @@ elim_omp_CFLAGS= $(AM_CFLAGS) -fopenmp
 elim_omp_SOURCES= 	\
 	mat-elim-omp.c
 
+if ENABLE_TBB
 mult_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x
 mult_tbb_LDADD= -ltbb
 mult_tbb_SOURCES= 	\
@@ -41,6 +46,7 @@ elim_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x
 elim_tbb_LDADD= -ltbb
 elim_tbb_SOURCES= 	\
 	mat-elim-tbb.cpp
+endif
 
 mult_pthrd_CFLAGS= $(AM_CFLAGS) -pthread
 mult_pthrd_SOURCES= 	\
@@ -49,6 +55,7 @@ elim_pthrd_CFLAGS= $(AM_CFLAGS) -pthread
 elim_pthrd_SOURCES= 	\
 	mat-elim-pthrd.c
 
+if ENABLE_KAAPIC
 mult_kaapi_CFLAGS= $(AM_CFLAGS) 
 mult_kaapi_LDADD= -lkaapic
 mult_kaapi_SOURCES= 	\
@@ -57,6 +64,7 @@ elim_kaapi_CFLAGS= $(AM_CFLAGS)
 elim_kaapi_LDADD= -lkaapic
 elim_kaapi_SOURCES= 	\
 	mat-elim-kaapi.c
+endif
 CLEANFILES=	
 
 DISTCLEANFILES=	\
