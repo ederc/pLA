@@ -22,6 +22,9 @@ if ENABLE_TBB
 bin_PROGRAMS += mult-tbb
 bin_PROGRAMS += elim-tbb
 endif
+if ENABLE_STARPU
+bin_PROGRAMS += mult-starpu
+endif
 
 mult_seq_CFLAGS= $(AM_CFLAGS)
 mult_seq_SOURCES= 	\
@@ -71,6 +74,7 @@ mult_starpu_CFLAGS= $(AM_CFLAGS)
 mult_starpu_LDADD= -lstarpu
 mult_starpu_SOURCES= 	\
 	mat-mult-starpu.c
+endif
 CLEANFILES=	
 
 DISTCLEANFILES=	\
