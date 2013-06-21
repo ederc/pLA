@@ -21,8 +21,8 @@ struct block_conf {
 
 static struct block_conf conf __attribute__ ((aligned (128)));
 static unsigned niter = 10;
-static unsigned nslicesl = 1<<1;
-static unsigned nslicesn = 1<<1;
+static unsigned nslicesl = 3;
+static unsigned nslicesn = 3;
 
 void callback_func(void *callback_arg) {
   printf("Callback function (arg %x)\n", callback_arg);
@@ -34,8 +34,8 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
 
-  unsigned int nc = STARPU_MATRIX_GET_NX(descr[2]);
-  unsigned int lc = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int nc = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int lc = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int la = STARPU_MATRIX_GET_NY(descr[0]);
   printf("nslicesl %u\n",nslicesl);
   printf("nslicesn %u\n",nslicesn);
@@ -94,7 +94,7 @@ static void launch_codelets(int l, int m, int n,
 
       //task->callback_func = callback_func;
       //task->callback_arg  = NULL;
-
+      printf("i %d -- j %d\n",i,j);
       task->handles[0] = starpu_data_get_sub_data(a_hdl, 1, i);
       task->handles[1] = starpu_data_get_sub_data(b_hdl, 1, j);
       task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
