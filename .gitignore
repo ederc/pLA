@@ -64,11 +64,13 @@ mult-omp
 mult-tbb
 mult-kaapi
 mult-pthrd
+mult-starpu
 elim-seq
 elim-omp
 elim-tbb
 elim-kaapi
 elim-pthrd
+elim-starpu
 tests/test*
 !tests/unit/Makefile.am
 !tests/unit/*.c

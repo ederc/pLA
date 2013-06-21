@@ -65,6 +65,12 @@ elim_kaapi_LDADD= -lkaapic
 elim_kaapi_SOURCES= 	\
 	mat-elim-kaapi.c
 endif
+
+if ENABLE_STARPU
+mult_starpu_CFLAGS= $(AM_CFLAGS)
+mult_starpu_LDADD= -lstarpu
+mult_starpu_SOURCES= 	\
+	mat-mult-starpu.c
 CLEANFILES=	
 
 DISTCLEANFILES=	\
