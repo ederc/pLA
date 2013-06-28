@@ -67,6 +67,7 @@ static void starpu_gemm_cpu(void *descr[], int type) {
       for (j = 0; j < lc; ++j) {
         printf("j %u\n",j);
         sum = 0;
+        printf("-- sub_c[%u] %u \n",j+i*la, sub_c[j+i*la]);
         for (k = 0; k < nslicesl; ++k) {
           //printf("k %u\n",k);
           sum += sub_a[k+i*la] * sub_b[k+j*la];
@@ -118,26 +119,28 @@ static void launch_codelets(int l, int m, int n,
     starpu_data_handle_t a_hdl, starpu_data_handle_t b_hdl,
     starpu_data_handle_t c_hdl) {
   int i, j, k, ret;
-  for (i = 0; i < nslicesl; ++i) {
-    for (j = 0; j < nslicesn; ++j) {
-      struct starpu_task *task  = starpu_task_create();
+  for (k = 0; k < nslicesl; ++k) {
+    for (i = 0; i < nslicesl; ++i) {
+      for (j = 0; j < nslicesn; ++j) {
+        struct starpu_task *task  = starpu_task_create();
 
-      task->cl          = &cl;
-      //task->cl_arg      = &conf;
-      //task->cl_arg_size = sizeof(struct block_conf);
+        task->cl          = &cl;
+        //task->cl_arg      = &conf;
+        //task->cl_arg_size = sizeof(struct block_conf);
 
-      //task->callback_func = callback_func;
-      //task->callback_arg  = NULL;
-      printf("i %d -- j %d\n",i,j);
-      task->handles[0] = starpu_data_get_sub_data(a_hdl, 2, j, i);
-      task->handles[1] = starpu_data_get_sub_data(b_hdl, 2, i, j);
-      task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
-      printf("b\n");
-      ret = starpu_task_submit(task);
-      if (ret == -ENODEV)
-        ret = 77;
-      STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
-      printf("a\n");
+        //task->callback_func = callback_func;
+        //task->callback_arg  = NULL;
+        printf("i %d -- j %d -- k %d\n",i,j,k);
+        task->handles[0] = starpu_data_get_sub_data(a_hdl, 2, k, i);
+        task->handles[1] = starpu_data_get_sub_data(b_hdl, 2, k, j);
+        task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
+        printf("b\n");
+        ret = starpu_task_submit(task);
+        if (ret == -ENODEV)
+          ret = 77;
+        STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
+        printf("a\n");
+      }
     }
   }
 }
