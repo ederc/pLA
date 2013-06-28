@@ -46,6 +46,7 @@ m4/ltversion.m4
 src/dense-mult
 src/libla-bencher.la
 src/random*
+src/mstar*
 include/pla-config.h
 include/pla-config.h.in
 include/stamp-h1

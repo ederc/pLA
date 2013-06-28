@@ -21,8 +21,9 @@ struct block_conf {
 
 static struct block_conf conf __attribute__ ((aligned (128)));
 static unsigned niter = 10;
-static unsigned nslicesl = 3;
-static unsigned nslicesn = 3;
+// number of elements per slice in l resp. n direction
+static unsigned nslicesl = 1<<0;
+static unsigned nslicesn = 1<<0;
 
 void callback_func(void *callback_arg) {
   printf("Callback function (arg %x)\n", callback_arg);
@@ -33,51 +34,84 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
+  for (i = 0; i < 2 * sizeof(sub_a)/sizeof(sub_a[0]); ++i)
+    printf("sub_a[%u] = %u\n",i, sub_a[i]);
+  printf("\n");
+  for (i = 0; i < 2 * sizeof(sub_b)/sizeof(sub_b[0]); ++i)
+    printf("sub_b[%u] = %u\n",i, sub_b[i]);
+  for (i = 0; i < sizeof(sub_c)/sizeof(sub_c[0]); ++i)
+    printf("sub_c[%u] = %u\n",i, sub_c[i]);
 
-  unsigned int nc = STARPU_MATRIX_GET_NY(descr[2]);
-  unsigned int lc = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned int la = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int nc = STARPU_MATRIX_GET_LD(descr[2])/nslicesl;
+  unsigned int lc = STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
+  unsigned int la = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[2]);
+  unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int la1 = STARPU_MATRIX_GET_NY(descr[0]);
   printf("nslicesl %u\n",nslicesl);
   printf("nslicesn %u\n",nslicesn);
   printf("nc %u\n",nc);
   printf("lc %u\n",lc);
   printf("la %u\n",la);
+  printf("nc1 %u\n",nc1);
+  printf("lc1 %u\n",lc1);
+  printf("la1 %u\n",la1);
   unsigned int sum;
   printf("here\n");
-  //if (type == STARPU_CPU) {
-    int worker_size = starpu_combined_worker_get_size();
-    if (worker_size != 1) {
-      int rank  = starpu_combined_worker_get_rank();
-      int block_size  = (nc + worker_size -1)/worker_size;
-      int new_nc      = STARPU_MIN(nc, block_size * (rank + 1)) - block_size * rank;
-      nc              = new_nc;
-      STARPU_ASSERT(nc = STARPU_MATRIX_GET_NY(descr[1]));
-    }
+  int worker_size = starpu_combined_worker_get_size();
+  int rank        = starpu_combined_worker_get_rank();
+  printf("worker rank %d\n",rank);
+  if (worker_size == 1) {
     for (i = 0; i < nc; ++i) {
       printf("i %u\n",i);
       for (j = 0; j < lc; ++j) {
         printf("j %u\n",j);
         sum = 0;
-        for (k = 0; k < la; ++k) {
-          printf("k %u\n",k);
+        for (k = 0; k < nslicesl; ++k) {
+          //printf("k %u\n",k);
           sum += sub_a[k+i*la] * sub_b[k+j*la];
-          printf("sum[%u] %u = sub_a[%u] %u + sub_b[%u] %u\n",
-            j+i*nc, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
+          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
+              j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
+        }
+        sub_c[j+i*la] += sum;
+      }
+    }
+  } else {
+    printf("Parallel worker\n");
+    int rank        = starpu_combined_worker_get_rank();
+    int block_size  = (nc + worker_size -1)/worker_size;
+    int new_nc      = STARPU_MIN(nc, block_size * (rank + 1)) - block_size * rank;
+    nc              = new_nc;
+    printf("new_nc %u\n",nc);
+    STARPU_ASSERT(nc = STARPU_MATRIX_GET_NY(descr[1]));
+    for (i = 0; i < nc; ++i) {
+      printf("i %u\n",i);
+      for (j = 0; j < lc; ++j) {
+        printf("j %u\n",j);
+        sum = 0;
+        for (k = 0; k < nc; ++k) {
+          //printf("k %u\n",k);
+          sum += sub_a[k+i*la] * sub_b[k+j*la];
+          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
+              j+i*nc, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
         }
         sub_c[j+i*nc] += sum;
       }
     }
-  //}
+  }
+}
+
+static void cpu_mult(void *descr[], __attribute__((unused)) void *arg) {
+  starpu_gemm_cpu(descr, STARPU_CPU);
 }
 
 struct starpu_codelet cl = {
   .type             = STARPU_SEQ,
   .max_parallelism  = 64,
   .where            = STARPU_CPU|STARPU_CUDA,
-  .cpu_func         = starpu_gemm_cpu,
+  .cpu_funcs        = {cpu_mult, NULL},
   .nbuffers         = 3,
   .modes            = {STARPU_R, STARPU_R, STARPU_RW}
-
 };
 
 static void launch_codelets(int l, int m, int n,
@@ -95,27 +129,33 @@ static void launch_codelets(int l, int m, int n,
       //task->callback_func = callback_func;
       //task->callback_arg  = NULL;
       printf("i %d -- j %d\n",i,j);
-      task->handles[0] = starpu_data_get_sub_data(a_hdl, 1, i);
-      task->handles[1] = starpu_data_get_sub_data(b_hdl, 1, j);
+      task->handles[0] = starpu_data_get_sub_data(a_hdl, 2, j, i);
+      task->handles[1] = starpu_data_get_sub_data(b_hdl, 2, i, j);
       task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
       printf("b\n");
       ret = starpu_task_submit(task);
+      if (ret == -ENODEV)
+        ret = 77;
+      STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
       printf("a\n");
     }
   }
 }
 
 
-static void mult(int l, int m, int n, int thrds, int bs) {
+static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   printf("Matrix Multiplication\n");
+  nslicesl = sh;
+  nslicesn = sv;
   struct timeval start, stop;
   clock_t cStart, cStop;
   int i, j, k;
-  // open mp stuff
+  // starpu stuff
+  int ret;
   int threadNumber  = thrds;
   int blocksize     = bs;
   
-  starpu_init(NULL);
+  ret = starpu_init(NULL);
   
   unsigned int *a, *b, *c;
   starpu_malloc((void **)&a, l*m*sizeof(unsigned int));
@@ -142,14 +182,15 @@ static void mult(int l, int m, int n, int thrds, int bs) {
   memset(&fb, 0, sizeof(fb));
   fa.filter_func    = starpu_matrix_filter_block;
   fa.nchildren      = nslicesl;
-  fb.filter_func    = starpu_matrix_filter_block;
+  fb.filter_func    = starpu_matrix_filter_vertical_block;
   fb.nchildren      = nslicesn;
 
-  starpu_data_partition(a_hdl, &fa); 
-  starpu_data_partition(b_hdl, &fb);
+  //starpu_data_partition(a_hdl, &fa); 
+  //starpu_data_partition(b_hdl, &fb);
 
+  starpu_data_map_filters(a_hdl, 2, &fa, &fb);
+  starpu_data_map_filters(b_hdl, 2, &fa, &fb);
   starpu_data_map_filters(c_hdl, 2, &fa, &fb);
-
 
   // fill matrices
   srand(time(NULL));
@@ -234,8 +275,14 @@ void print_help(int exval) {
 
 int main(int argc, char *argv[]) {
   int opt;
-  // default values
-  int l = 2000, m = 2000, n = 2000, t=1, bs=1;
+  // default matrix dimensions
+  unsigned int l = 2000, m = 2000, n = 2000;
+  // default number of threads to be used
+  unsigned int t=1;
+  // default blocksize
+  unsigned int bs=1;
+  // default size of horizontal resp. vertical tiles
+  unsigned int sh = 0, sv = 0;
   // biggest prime < 2^16
 
   /* 
@@ -246,7 +293,7 @@ int main(int argc, char *argv[]) {
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "hl:m:n:t:b:")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:n:t:b:H:V:")) != -1) {
     switch(opt) {
       case 'h':
         print_help(0);
@@ -266,10 +313,21 @@ int main(int argc, char *argv[]) {
       case 'b': 
         bs = atoi(strdup(optarg));
         break;
+      case 'H': 
+        sh = atoi(strdup(optarg));
+        break;
+      case 'V': 
+        sv = atoi(strdup(optarg));
+        break;
     }
   }
 
-  mult(l,m,n,t,bs);
+  if (sh == 0)
+    sh  = 1;
+  if (sv == 0)
+    sv  = 1;
+
+  mult(l,m,n,t,bs,sh,sv);
 
   return 0;
 }
