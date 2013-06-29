@@ -34,13 +34,6 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
-  for (i = 0; i < 2 * sizeof(sub_a)/sizeof(sub_a[0]); ++i)
-    printf("sub_a[%u] = %u\n",i, sub_a[i]);
-  printf("\n");
-  for (i = 0; i < 2 * sizeof(sub_b)/sizeof(sub_b[0]); ++i)
-    printf("sub_b[%u] = %u\n",i, sub_b[i]);
-  for (i = 0; i < sizeof(sub_c)/sizeof(sub_c[0]); ++i)
-    printf("sub_c[%u] = %u\n",i, sub_c[i]);
 
   unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[2]);
   unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[2]);
@@ -52,53 +45,42 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   //unsigned int nc = nc1 / STARPU_MATRIX_GET_LD(descr[2])/nslicesl;
   //unsigned int lc = lc1 / STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
   //unsigned int la = la1 / STARPU_MATRIX_GET_LD(descr[0]);
-  printf("nslicesl %u\n",nslicesl);
-  printf("nslicesn %u\n",nslicesn);
-  printf("li %u\n",li);
-  printf("lj %u\n",lj);
-  printf("lk %u\n",lk);
-  printf("nc1 %u\n",nc1);
-  printf("lc1 %u\n",lc1);
-  printf("la1 %u\n",la1);
+  //printf("li %u\n",li);
+  //printf("lj %u\n",lj);
+  //printf("lk %u\n",lk);
+  //printf("nc1 %u\n",nc1);
+  //printf("lc1 %u\n",lc1);
+  //printf("la1 %u\n",la1);
   unsigned int sum;
-  printf("here\n");
   int worker_size = starpu_combined_worker_get_size();
   int rank        = starpu_combined_worker_get_rank();
-  printf("worker rank %d\n",rank);
   if (worker_size == 1) {
     for (i = 0; i < li; ++i) {
-      printf("i %u\n",i);
       for (j = 0; j < lj; ++j) {
-        printf("j %u\n",j);
         sum = 0;
-        printf("-- sub_c[%u] %u \n",j+i*la, sub_c[j+i*la]);
         for (k = 0; k < lk; ++k) {
           //printf("k %u\n",k);
           sum += sub_a[k+i*la] * sub_b[k+j*la];
-          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
-              j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
+          //printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
+          //    j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
         }
         sub_c[j+i*la] += sum;
       }
     }
   } else {
-    printf("Parallel worker\n");
     int rank        = starpu_combined_worker_get_rank();
     int block_size  = (li + worker_size -1)/worker_size;
     int new_li      = STARPU_MIN(li, block_size * (rank + 1)) - block_size * rank;
     li              = new_li;
-    printf("new_nc %u\n",li);
     STARPU_ASSERT(li = STARPU_MATRIX_GET_NY(descr[1]));
     for (i = 0; i < li; ++i) {
-      printf("i %u\n",i);
       for (j = 0; j < lj; ++j) {
-        printf("j %u\n",j);
         sum = 0;
         for (k = 0; k < lk; ++k) {
           //printf("k %u\n",k);
           sum += sub_a[k+i*la] * sub_b[k+j*la];
-          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
-              j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
+          //printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
+          //    j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
         }
         sub_c[j+i*la] += sum;
       }
@@ -137,11 +119,10 @@ static void launch_codelets(int l, int m, int n,
 
         //task->callback_func = callback_func;
         //task->callback_arg  = NULL;
-        printf("i %d -- j %d -- k %d\n",i,j,k);
+        //printf("i %d -- j %d -- k %d\n",i,j,k);
         task->handles[0] = starpu_data_get_sub_data(a_hdl, 2, k, i);
         task->handles[1] = starpu_data_get_sub_data(b_hdl, 2, k, j);
         task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
-        printf("b\n");
         ret = starpu_task_submit(task);
         if (ret == -ENODEV)
           ret = 77;
@@ -205,14 +186,14 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   // fill matrices
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
-    a[i]  = i;
-    //a[i]  = rand() % 20;
-    printf("a[%d] = %u\n",i,a[i]);
+    //a[i]  = i;
+    a[i]  = rand() % 20;
+    //printf("a[%d] = %u\n",i,a[i]);
   }
   for (i=0; i< n*m; i++) {
-    b[i]  = 50 + i;
-    //b[i]  = rand() % 20;
-    printf("b[%d] = %u\n",i,b[i]);
+    //b[i]  = 50 + i;
+    b[i]  = rand() % 20;
+    //printf("b[%d] = %u\n",i,b[i]);
   }
   
   for (i=0; i< n*l; i++) {
