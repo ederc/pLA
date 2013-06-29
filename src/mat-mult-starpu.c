@@ -35,10 +35,10 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
 
-  unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[2]);
-  unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int la1 = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int li = STARPU_MATRIX_GET_LD(descr[2])/nslicesl;
+  unsigned int li = STARPU_MATRIX_GET_LD(descr[1])/nslicesl;
   unsigned int lj = STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
   unsigned int la = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned int lk = la / nslicesl;
@@ -108,9 +108,9 @@ static void launch_codelets(int l, int m, int n,
   int maxk  = nslicesl;
   int maxi  = nslicesl;
   int maxj  = nslicesn;
-  for (k = 0; k < maxk; ++k) {
+  for (j = 0; j < maxj; ++j) {
     for (i = 0; i < maxi; ++i) {
-      for (j = 0; j < maxj; ++j) {
+      for (k = 0; k < maxk; ++k) {
         struct starpu_task *task  = starpu_task_create();
 
         task->cl          = &cl;
@@ -127,7 +127,6 @@ static void launch_codelets(int l, int m, int n,
         if (ret == -ENODEV)
           ret = 77;
         STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
-        printf("a\n");
       }
     }
   }
@@ -212,9 +211,6 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   starpu_data_unpartition(c_hdl, 0);
   starpu_data_unregister(c_hdl);
 
-  for (i=0; i< n*l; i++) {
-    printf("c[%d] = %u\n",i,c[i]);
-  }
   starpu_shutdown();
 
   // compute FLOPS:
