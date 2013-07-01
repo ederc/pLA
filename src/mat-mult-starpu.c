@@ -31,44 +31,64 @@ void callback_func(void *callback_arg) {
 
 static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int i, j, k;
-  unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
-
+  unsigned int *sub_a_1 = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int *sub_b_1 = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_DEV_HANDLE(descr[0]);
+  unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_DEV_HANDLE(descr[1]);
+  unsigned int *sub_c = (unsigned int *)STARPU_BLOCK_GET_DEV_HANDLE(descr[2]);
+  printf("sub_a[0] = %d\n",sub_a[0]);
+  printf("sub_b[0] = %d\n",sub_b[0]);
+  printf("sub_a_1[0] = %d\n",sub_a_1[0]);
+  printf("sub_b_1[0] = %d\n",sub_b_1[0]);
   unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int xxa = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int yya = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int xxb = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned int yyb = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int xxc = STARPU_MATRIX_GET_NX(descr[2]);
+  unsigned int yyc = STARPU_MATRIX_GET_NY(descr[2]);
   unsigned int la1 = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int offa = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  unsigned int offb = STARPU_MATRIX_GET_OFFSET(descr[1]);
   unsigned int li = STARPU_MATRIX_GET_LD(descr[1])/nslicesl;
   unsigned int lj = STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
   unsigned int la = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned int lk = la / nslicesl;
+  unsigned int lk = la;
   //unsigned int nc = nc1 / STARPU_MATRIX_GET_LD(descr[2])/nslicesl;
   //unsigned int lc = lc1 / STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
   //unsigned int la = la1 / STARPU_MATRIX_GET_LD(descr[0]);
-  //printf("li %u\n",li);
-  //printf("lj %u\n",lj);
-  //printf("lk %u\n",lk);
-  //printf("nc1 %u\n",nc1);
-  //printf("lc1 %u\n",lc1);
-  //printf("la1 %u\n",la1);
+  printf("li %u\n",li);
+  printf("lj %u\n",lj);
+  printf("lk %u\n",lk);
+  printf("nc1 %u\n",nc1);
+  printf("lc1 %u\n",lc1);
+  printf("xxa %u\n",xxa);
+  printf("yya %u\n",yya);
+  printf("xxb %u\n",xxb);
+  printf("yyb %u\n",yyb);
+  printf("xxc %u\n",xxc);
+  printf("yyc %u\n",yyc);
+  printf("offa %u\n",offa);
+  printf("offb %u\n",offb);
+  printf("la1 %u\n",la1);
+  li = 0;
+  lj = 0;
   unsigned int sum;
   int worker_size = starpu_combined_worker_get_size();
   int rank        = starpu_combined_worker_get_rank();
   if (worker_size == 1) {
-    for (i = 0; i < li; ++i) {
-      for (j = 0; j < lj; ++j) {
         sum = 0;
         for (k = 0; k < lk; ++k) {
           //printf("k %u\n",k);
-          sum += sub_a[k+i*la] * sub_b[k+j*la];
-          //printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
-          //    j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
+          sum += sub_a[k+offa] * sub_b[k+offb];
+          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
+              offb/lk+offa, sum, k+offa, sub_a[k+offa], k+offb, sub_b[k+offb]);
         }
-        sub_c[j+i*la] += sum;
-      }
-    }
+        sub_c[offb/lk+offa] += sum;
+    printf("TASK DONE\n");
   } else {
-    //printf("parallel workers\n");
+    printf("parallel workers\n");
     int rank        = starpu_combined_worker_get_rank();
     int block_size  = (li + worker_size -1)/worker_size;
     int new_li      = STARPU_MIN(li, block_size * (rank + 1)) - block_size * rank;
@@ -109,9 +129,9 @@ static void launch_codelets(int l, int m, int n,
   int maxk  = nslicesl;
   int maxi  = nslicesl;
   int maxj  = nslicesn;
-  for (k = 0; k < maxk; ++k) {
-    for (j = 0; j < maxj; ++j) {
-      for (i = 0; i < maxi; ++i) {
+  //for (k = 0; k < maxk; ++k) {
+    for (j = 0; j < l; ++j) {
+      for (i = 0; i < m; ++i) {
         struct starpu_task *task  = starpu_task_create();
 
         task->cl          = &cl;
@@ -121,16 +141,17 @@ static void launch_codelets(int l, int m, int n,
         //task->callback_func = callback_func;
         //task->callback_arg  = NULL;
         //printf("i %d -- j %d -- k %d\n",i,j,k);
-        task->handles[0] = starpu_data_get_sub_data(a_hdl, 2, k, i);
-        task->handles[1] = starpu_data_get_sub_data(b_hdl, 2, k, j);
+        task->handles[0] = starpu_data_get_sub_data(a_hdl, 1, j);
+        task->handles[1] = starpu_data_get_sub_data(b_hdl, 1, i);
         task->handles[2] = starpu_data_get_sub_data(c_hdl, 2, j, i);
+        printf("i %d -- j %d\n",i,j);
         ret = starpu_task_submit(task);
         if (ret == -ENODEV)
           ret = 77;
         STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
       }
     }
-  }
+  //}
 }
 
 
@@ -168,32 +189,37 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   //conf.bm = m;
   //conf.bn = n;
 
-  struct starpu_data_filter fa, fb;
+  struct starpu_data_filter fa, fb, fc;
   memset(&fa, 0, sizeof(fa));
   memset(&fb, 0, sizeof(fb));
+  memset(&fc, 0, sizeof(fc));
   fa.filter_func    = starpu_matrix_filter_block;
-  fa.nchildren      = nslicesl;
-  fb.filter_func    = starpu_matrix_filter_vertical_block;
-  fb.nchildren      = nslicesn;
+  fa.nchildren      = l;
+  fb.filter_func    = starpu_matrix_filter_block;
+  fb.nchildren      = n;
+  fc.filter_func    = starpu_matrix_filter_vertical_block;
+  fc.nchildren      = n;
 
-  //starpu_data_partition(a_hdl, &fa); 
-  //starpu_data_partition(b_hdl, &fb);
+  starpu_data_partition(a_hdl, &fa); 
+  starpu_data_partition(b_hdl, &fb);
 
-  starpu_data_map_filters(a_hdl, 2, &fa, &fb);
-  starpu_data_map_filters(b_hdl, 2, &fa, &fb);
-  starpu_data_map_filters(c_hdl, 2, &fa, &fb);
+  //starpu_data_map_filters(a_hdl, 2, &fa, &fc);
+  //starpu_data_map_filters(b_hdl, 2, &fb, &fc);
+  printf("- - - \n");
+  starpu_data_map_filters(c_hdl, 2, &fa, &fc);
+  printf("! ! !\n");
 
   // fill matrices
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
-    //a[i]  = i;
-    a[i]  = rand() % 20;
-    //printf("a[%d] = %u\n",i,a[i]);
+    a[i]  = i;
+    //a[i]  = rand() % 20;
+    printf("a[%d] = %u\n",i,a[i]);
   }
   for (i=0; i< n*m; i++) {
-    //b[i]  = 50 + i;
-    b[i]  = rand() % 20;
-    //printf("b[%d] = %u\n",i,b[i]);
+    b[i]  = 50 + i;
+    //b[i]  = rand() % 20;
+    printf("b[%d] = %u\n",i,b[i]);
   }
   
   for (i=0; i< n*l; i++) {
@@ -213,6 +239,10 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   starpu_data_unregister(c_hdl);
 
   starpu_shutdown();
+
+  for (i=0; i< l*n; i++) {
+    printf("c[%d] = %u\n",i,c[i]);
+  }
 
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
