@@ -111,8 +111,8 @@ unsigned int xCacheLineSizeLog(size_t line) {
   ax_cache_line_log_size=`echo $ax_cv_cache_line_size | $SED 's/.*\://g'`
   AC_MSG_RESULT( $ax_cache_line_log_size)
 
-  F4RT_CPU_CACHE_LINE=${ax_cache_line_size}
-  F4RT_LOG_CPU_CACHE_LINE=${ax_cache_line_log_size}
-  AC_SUBST(F4RT_CPU_CACHE_LINE)
-  AC_SUBST(F4RT_LOG_CPU_CACHE_LINE)
+  PLA_CPU_CACHE_LINE=${ax_cache_line_size}
+  PLA_LOG_CPU_CACHE_LINE=${ax_cache_line_log_size}
+  AC_SUBST(PLA_CPU_CACHE_LINE)
+  AC_SUBST(PLA_LOG_CPU_CACHE_LINE)
 ])
