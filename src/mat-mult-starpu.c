@@ -68,6 +68,7 @@ static void starpu_gemm_cpu(void *descr[], int type) {
       }
     }
   } else {
+    //printf("parallel workers\n");
     int rank        = starpu_combined_worker_get_rank();
     int block_size  = (li + worker_size -1)/worker_size;
     int new_li      = STARPU_MIN(li, block_size * (rank + 1)) - block_size * rank;
@@ -108,9 +109,9 @@ static void launch_codelets(int l, int m, int n,
   int maxk  = nslicesl;
   int maxi  = nslicesl;
   int maxj  = nslicesn;
-  for (j = 0; j < maxj; ++j) {
-    for (i = 0; i < maxi; ++i) {
-      for (k = 0; k < maxk; ++k) {
+  for (k = 0; k < maxk; ++k) {
+    for (j = 0; j < maxj; ++j) {
+      for (i = 0; i < maxi; ++i) {
         struct starpu_task *task  = starpu_task_create();
 
         task->cl          = &cl;
