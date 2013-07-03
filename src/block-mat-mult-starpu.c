@@ -34,8 +34,6 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int *sub_b = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int *sub_c = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
-  printf("sub_a[0] = %d\n",sub_a[0]);
-  printf("sub_b[0] = %d\n",sub_b[0]);
 
   unsigned int nc1 = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int lc1 = STARPU_MATRIX_GET_NY(descr[1]);
@@ -47,12 +45,6 @@ static void starpu_gemm_cpu(void *descr[], int type) {
   //unsigned int nc = nc1 / STARPU_MATRIX_GET_LD(descr[2])/nslicesl;
   //unsigned int lc = lc1 / STARPU_MATRIX_GET_LD(descr[1])/nslicesn;
   //unsigned int la = la1 / STARPU_MATRIX_GET_LD(descr[0]);
-  printf("li %u\n",li);
-  printf("lj %u\n",lj);
-  printf("lk %u\n",lk);
-  printf("nc1 %u\n",nc1);
-  printf("lc1 %u\n",lc1);
-  printf("la1 %u\n",la1);
   unsigned int sum;
   int worker_size = starpu_combined_worker_get_size();
   int rank        = starpu_combined_worker_get_rank();
@@ -63,8 +55,6 @@ static void starpu_gemm_cpu(void *descr[], int type) {
         for (k = 0; k < lk; ++k) {
           //printf("k %u\n",k);
           sum += sub_a[k+i*la] * sub_b[k+j*la];
-          printf("sum[%u] %u = sub_a[%u] %u * sub_b[%u] %u\n",
-              j+i*la, sum, k+i*la, sub_a[k+i*la], k+j*la, sub_b[k+j*la]);
         }
         sub_c[j+i*la] += sum;
       }
@@ -96,8 +86,8 @@ static void cpu_mult(void *descr[], __attribute__((unused)) void *arg) {
 }
 
 struct starpu_codelet cl = {
-  .type             = STARPU_SEQ,
-  .max_parallelism  = 64,
+  .type             = STARPU_SPMD,
+  .max_parallelism  = 32,
   .where            = STARPU_CPU|STARPU_CUDA,
   .cpu_funcs        = {cpu_mult, NULL},
   .nbuffers         = 3,
@@ -138,17 +128,17 @@ static void launch_codelets(int l, int m, int n,
 
 static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   printf("Matrix Multiplication\n");
-  nslicesl = sh;
-  nslicesn = sv;
+  nslicesl = 64;
+  nslicesn = 64;
   struct timeval start, stop;
   clock_t cStart, cStop;
   int i, j, k;
   // starpu stuff
   int ret;
-  int threadNumber  = thrds;
   int blocksize     = bs;
   
   ret = starpu_init(NULL);
+  int threadNumber  = starpu_worker_get_count();
   
   unsigned int *a, *b, *c;
   starpu_malloc((void **)&a, l*m*sizeof(unsigned int));
@@ -188,14 +178,12 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
   // fill matrices
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
-    a[i]  = i;
-    //a[i]  = rand() % 20;
-    //printf("a[%d] = %u\n",i,a[i]);
+    //a[i]  = i;
+    a[i]  = rand() % 20;
   }
   for (i=0; i< n*m; i++) {
-    b[i]  = 50 + i;
-    //b[i]  = rand() % 20;
-    //printf("b[%d] = %u\n",i,b[i]);
+    //b[i]  = 50 + i;
+    b[i]  = rand() % 20;
   }
   
   for (i=0; i< n*l; i++) {
@@ -216,9 +204,6 @@ static void mult(int l, int m, int n, int thrds, int bs, int sh, int sv) {
 
   starpu_shutdown();
 
-  for (i=0; i< n*l; i++) {
-    printf("c[%d] = %d\n",i,c[i]);
-  }
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()

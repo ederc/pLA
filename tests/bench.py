@@ -112,16 +112,16 @@ if int(args.alg) == 1:
     methods = ['Raw sequential','pthreads','Open MP',
     'KAAPIC',
     'Intel TBB 1D auto partitioner','Intel TBB 1D affinity partitioner',
-    'Intel TBB 1D simple partitioner','Intel TBB 2D simple partitioner']
+    'Intel TBB 1D simple partitioner','Intel TBB 2D simple partitioner','StarPU']
     algorithm_type = ['pthrd','omp','kaapi','tbb -v0','tbb -v1','tbb -v2',
-    'tbb -v3']
+    'tbb -v3','starpu']
     algorithm_seq = ['seq']
   else :
     methods = ['pthreads','Open MP','KAAPIC',
     'Intel TBB 1D auto partitioner','Intel TBB 1D affinity partitioner',
-    'Intel TBB 1D simple partitioner','Intel TBB 2D simple partitioner']
+    'Intel TBB 1D simple partitioner','Intel TBB 2D simple partitioner','StarPU']
     algorithm_type = ['pthrd','omp','kaapi','tbb -v0','tbb -v1','tbb -v2',
-    'tbb -v3']
+    'tbb -v3','starpu']
 if int(args.alg) == 2:
   if start_threads == 1:
     methods = ['Raw sequential','pthreads','Open MP',
@@ -176,6 +176,7 @@ if int(args.alg) == 1:
 else:
   test_str = os.getcwd()+'/../../src/elim-'
 test_kaapi_str = 'KAAPI_CPUCOUNT='
+test_starpu_str = 'STARPU_SCHED=dmda STARPU_NCPU='
 
 bench_file = "bench.res"
 f = open(bench_file,"w")
@@ -213,8 +214,8 @@ if int(args.inc) == -1:
     if int(args.alg) != 1:
       test_final = test_final + ' -b'+str(args.blocksize)
     for j in threads:
-      print(test_kaapi_str+str(j)+' '+test_final+' -t'+str(j)+' >> '+bench_file)
-      os.system(test_kaapi_str+str(j)+' '+test_final+' -t'+str(j)+' >> '+bench_file)
+      print(test_kaapi_str+str(j)+' '+test_starpu_str+str(j)+' '+test_final+' -t'+str(j)+' >> '+bench_file)
+      os.system(test_kaapi_str+str(j)+' '+test_starpu_str+str(j)+' '+test_final+' -t'+str(j)+' >> '+bench_file)
       print '-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S")
 
 # generate 10 random matrices without timestamp if increasing is done
@@ -303,7 +304,6 @@ if args.plot:
   threads = list(map(lambda x: int(x) - 1, threads))
 
   data = plot_data
-
 
   for l in lines:
     for i in range(0,len(methods)):  
@@ -532,82 +532,82 @@ if args.plot:
   #pl.savefig('gflops-plot.pdf',papertype='a4',orientation='landscape')
   pl.savefig(pp,format='pdf',papertype='a4',orientation='landscape')
 
-if int(args.inc) == -1:
-  fig = pl.figure()
-  ax = fig.add_subplot(111)
-  fig.suptitle('Speedup compared to best lowest thread variant', fontsize=10)
-  if int(args.alg) == 1:
-    pl.title('Mat Mult uint64 Matrix dimensions: '+dimensions[0]+
-    ' x '+dimensions[1]+', '+dimensions[1]+' x '+dimensions[2], fontsize=8)
-  if int(args.alg) == 2:
-    if int(args.inc) == -1:
-      pl.title('Naive GEP uint64 Matrix dimensions: '+dimensions[0]+
-      ' x '+dimensions[1], fontsize=8)
-    else:
-      if int(args.inc) == 0:
+  if int(args.inc) == -1:
+    fig = pl.figure()
+    ax = fig.add_subplot(111)
+    fig.suptitle('Speedup compared to best lowest thread variant', fontsize=10)
+    if int(args.alg) == 1:
+      pl.title('Mat Mult uint64 Matrix dimensions: '+dimensions[0]+
+      ' x '+dimensions[1]+', '+dimensions[1]+' x '+dimensions[2], fontsize=8)
+    if int(args.alg) == 2:
+      if int(args.inc) == -1:
         pl.title('Naive GEP uint64 Matrix dimensions: '+dimensions[0]+
-        ' x '+dimensions[1]+' with dimensions doubled in each step using '+
-        str(max_threads)+' threads', fontsize=8)
+        ' x '+dimensions[1], fontsize=8)
       else:
-        pl.title('Naive GEP uint64 Matrix dimensions: '+dimensions[0]+
-        ' x '+dimensions[1]+' increasing by '+dimensions[2]+' in each step using '+
-        str(max_threads)+' threads', fontsize=8)
-  if int(args.alg) == 3:
-    if int(args.inc) == -1:
-      pl.title('Cache-oblivious GEP uint64 Matrix dimensions: '+dimensions[0]+
-      ' x '+dimensions[1], fontsize=8)
-    else:
-      if int(args.inc) == 0:
+        if int(args.inc) == 0:
+          pl.title('Naive GEP uint64 Matrix dimensions: '+dimensions[0]+
+          ' x '+dimensions[1]+' with dimensions doubled in each step using '+
+          str(max_threads)+' threads', fontsize=8)
+        else:
+          pl.title('Naive GEP uint64 Matrix dimensions: '+dimensions[0]+
+          ' x '+dimensions[1]+' increasing by '+dimensions[2]+' in each step using '+
+          str(max_threads)+' threads', fontsize=8)
+    if int(args.alg) == 3:
+      if int(args.inc) == -1:
         pl.title('Cache-oblivious GEP uint64 Matrix dimensions: '+dimensions[0]+
-        ' x '+dimensions[1]+' with dimensions doubled in each step using '+
-        str(max_threads)+' threads', fontsize=8)
+        ' x '+dimensions[1], fontsize=8)
       else:
-        pl.title('Cache-oblivious GEP uint64 Matrix dimensions: '+dimensions[0]+
-        ' x '+dimensions[1]+' increasing by '+dimensions[2]+' in each step using '+
-        str(max_threads)+' threads', fontsize=8)
-  ax.set_xlabel('Number of threads', fontsize=7)
-  ax.set_ylabel('Speedup', fontsize=8)
+        if int(args.inc) == 0:
+          pl.title('Cache-oblivious GEP uint64 Matrix dimensions: '+dimensions[0]+
+          ' x '+dimensions[1]+' with dimensions doubled in each step using '+
+          str(max_threads)+' threads', fontsize=8)
+        else:
+          pl.title('Cache-oblivious GEP uint64 Matrix dimensions: '+dimensions[0]+
+          ' x '+dimensions[1]+' increasing by '+dimensions[2]+' in each step using '+
+          str(max_threads)+' threads', fontsize=8)
+    ax.set_xlabel('Number of threads', fontsize=7)
+    ax.set_ylabel('Speedup', fontsize=8)
 
-  pl.grid(b=True, which='major', color='k', linewidth=0.3)
-  pl.grid(b=True, which='minor', color='k', linewidth=0.1, alpha=0.5)
+    pl.grid(b=True, which='major', color='k', linewidth=0.3)
+    pl.grid(b=True, which='minor', color='k', linewidth=0.1, alpha=0.5)
 
-  ax = pl.gca()
+    ax = pl.gca()
 
-  #ax.set_xticklabels(group_labels)
-  data_tmp = range(0,len(plot_data))
-  # get right scale for a4 paper size
-  scale_tmp = 38 // (len(plot_data))
-  data = range(0,38,scale_tmp)
-  tick_lbs = plot_data
-  ax.xaxis.set_ticks(threads)
-  ax.xaxis.set_ticklabels(tick_lbs)
+    #ax.set_xticklabels(group_labels)
+    data_tmp = range(0,len(plot_data))
+    # get right scale for a4 paper size
+    scale_tmp = 38 // (len(plot_data))
+    data = range(0,38,scale_tmp)
+    tick_lbs = plot_data
+    ax.xaxis.set_ticks(threads)
+    ax.xaxis.set_ticklabels(tick_lbs)
 
-  p = [None]*len(methods)
-  for i in range(0,len(methods)):
-    p[i], = ax.plot(data[0:len(speedup_series[i])], speedup_series[i], c=coloring[i],
-        ls=styles[i], marker=markers[i], markersize='8', label=i)
-  # set 0 as min value for y and 1 as min value for x (data)
-  #pl.xlim(xmin=1)
-  pl.ylim(ymin=0)
+    p = [None]*len(methods)
+    for i in range(0,len(methods)):
+      p[i], = ax.plot(data[0:len(speedup_series[i])], speedup_series[i], c=coloring[i],
+          ls=styles[i], marker=markers[i], markersize='8', label=i)
+    # set 0 as min value for y and 1 as min value for x (data)
+    #pl.xlim(xmin=1)
+    pl.ylim(ymin=0)
 
-  # we do not print the legend here, use the one from the timings page
-  ax.legend((methods),'lower right', shadow=True, fancybox=True)
+    # we do not print the legend here, use the one from the timings page
+    ax.legend((methods),'lower right', shadow=True, fancybox=True)
 
-  #ax.legend().set_visible(False)
-  # take gflops of best computation to figure out the
-  # granularity of the yaxis
-  tmp_ticks = ax.yaxis.get_majorticklocs()
-  # note that here "abs()" is needed since if computations are too fast we
-  # set GFLOPS to -1 instead of infinity. Since the MultipleLocator must
-  # be set to a positive integer value, we have to take care of this case.
-  granu = abs(tmp_ticks[len(tmp_ticks)-1]) // (len(tmp_ticks)-1) // 5
-  if granu == 0.0:
-    granu = 1.0
-  ax.yaxis.set_minor_locator(MultipleLocator(granu))
+    #ax.legend().set_visible(False)
+    # take gflops of best computation to figure out the
+    # granularity of the yaxis
+    tmp_ticks = ax.yaxis.get_majorticklocs()
+    # note that here "abs()" is needed since if computations are too fast we
+    # set GFLOPS to -1 instead of infinity. Since the MultipleLocator must
+    # be set to a positive integer value, we have to take care of this case.
+    granu = abs(tmp_ticks[len(tmp_ticks)-1]) // (len(tmp_ticks)-1) // 5
+    if granu == 0.0:
+      granu = 1.0
+    ax.yaxis.set_minor_locator(MultipleLocator(granu))
 
-  pl.tick_params(axis='both', which='major', labelsize=6)
-  pl.tick_params(axis='both', which='minor', labelsize=6)
+    pl.tick_params(axis='both', which='major', labelsize=6)
+    pl.tick_params(axis='both', which='minor', labelsize=6)
 
-  #pl.savefig('speedup.pdf',format='pdf',papertype='a4',orientation='landscape')
-  pl.savefig(pp,format='pdf',papertype='a4',orientation='landscape')
+    #pl.savefig('speedup.pdf',format='pdf',papertype='a4',orientation='landscape')
+    pl.savefig(pp,format='pdf',papertype='a4',orientation='landscape')
 pp.close()

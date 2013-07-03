@@ -31,7 +31,7 @@ os.chdir(args.directory)
 
 file_name = ''
 # find bench file
-for files in glob.glob("bench-*"):
+for files in glob.glob("bench.res"):
   file_name = files
 
 # read lines of the benchmark files
