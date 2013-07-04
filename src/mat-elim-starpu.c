@@ -67,6 +67,28 @@ struct starpu_codelet getri_cl = {
 
 
 static void gessm(void *descr[], int type) {
+  unsigned int i, j, k;
+  unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+
+  unsigned int mult   = 0;
+ 
+  printf("ld_a  = %u\n", ld_a);
+  for (i = 0; i < x_dim_a - 1; ++i) {  
+    for (j = i+1; j < y_dim_a ; ++j) {  
+      printf("i %u -- j %u\n",i,j);
+      printf("mult      = %u\n", mult);
+      mult  = sub_a[i+j*ld_a];
+      for (k = 0; k < x_dim_b; ++k) {
+        sub_b[k+j*ld_a] +=  sub_b[k+i*ld_a] * mult;
+      }
+    }
+  }
 }
 
 static void gessm_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -78,7 +100,7 @@ struct starpu_codelet gessm_cl = {
   .max_parallelism  = INT_MAX,
   .where            = STARPU_CPU|STARPU_CUDA,
   .cpu_funcs        = {gessm_base, NULL},
-  .nbuffers         = 1,
+  .nbuffers         = 2,
   .modes            = {STARPU_R, STARPU_RW}
 };
 
@@ -95,7 +117,7 @@ struct starpu_codelet trsti_cl = {
   .max_parallelism  = INT_MAX,
   .where            = STARPU_CPU|STARPU_CUDA,
   .cpu_funcs        = {trsti_base, NULL},
-  .nbuffers         = 1,
+  .nbuffers         = 2,
   .modes            = {STARPU_R, STARPU_RW}
 };
 
@@ -264,7 +286,7 @@ void elim_co(int l,int m, int thrds, int bs) {
   fl.filter_func  = starpu_matrix_filter_block;
   fl.nchildren    = nb_horiz_tiles;
 
-  starpu_data_map_filters(a_hdl, 2, &fl, &fm);
+  starpu_data_map_filters(a_hdl, 2, &fm, &fl);
   launch_codelets(nb_vert_tiles, nb_horiz_tiles, a_hdl); 
 
   gettimeofday(&stop, NULL);
