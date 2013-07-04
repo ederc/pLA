@@ -21,6 +21,35 @@ unsigned int blocksize  = 0;
 unsigned int *neg_inv_piv;
 
 static void getri(void *descr[], int type) {
+  unsigned int i, j, k;
+  unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int x_dim  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int y_dim  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int ld_a   = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int inv    = 0;
+  unsigned int mult   = 0;
+ 
+  printf("x_dim = %u\n", x_dim);
+  printf("y_dim = %u\n", y_dim);
+  printf("ld_a  = %u\n", ld_a);
+  for (i = 0; i < y_dim-1; ++i) {  
+    // compute inverse
+    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
+    inv = negInverseModP(sub_a[i+i*ld_a], prime);
+    printf("inv  = %u\n", inv);
+    for (j = i+1; j < x_dim; ++j) {
+      // multiply by corresponding coeff
+      mult  = inv * sub_a[i+j*ld_a];
+      printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
+      printf("mult      = %u\n", mult);
+      sub_a[i+j*ld_a] = mult;
+      for (k = i+1; k < y_dim; ++k) {
+        sub_a[k+j*ld_a]  +=  sub_a[k+i*ld_a] * mult;
+      }
+    }
+    // store corresponding multiple for next tile
+    printf("--< sub_a[%u] = %u\n", i+(j-1)*ld_a,sub_a[i+(j-1)*ld_a]);
+  }  
 }
 
 static void getri_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -41,7 +70,7 @@ static void gessm(void *descr[], int type) {
 }
 
 static void gessm_base(void *descr[], __attribute__((unused)) void *arg) {
-  getri(descr, STARPU_CPU);
+  gessm(descr, STARPU_CPU);
 }
 
 struct starpu_codelet gessm_cl = {
@@ -212,7 +241,9 @@ void elim_co(int l,int m, int thrds, int bs) {
   
   srand(time(NULL));
   for (i=0; i< l*m; i++) {
-    a[i]  = rand();
+    a[i]  = i+1;
+    printf("a[%u] = %u\n", i, a[i]);
+    //a[i]  = rand();
   }
 
   printf("Cache-oblivious Gaussian Elimination\n");
@@ -228,10 +259,10 @@ void elim_co(int l,int m, int thrds, int bs) {
   memset(&fm, 0, sizeof(fm));
   unsigned int nb_vert_tiles  = l/tile_size;
   unsigned int nb_horiz_tiles = m/tile_size;
-  fl.filter_func  = starpu_matrix_filter_vertical_block;
-  fl.nchildren    = nb_vert_tiles;
-  fm.filter_func  = starpu_matrix_filter_block;
-  fm.nchildren    = nb_horiz_tiles;
+  fm.filter_func  = starpu_matrix_filter_vertical_block;
+  fm.nchildren    = nb_vert_tiles;
+  fl.filter_func  = starpu_matrix_filter_block;
+  fl.nchildren    = nb_horiz_tiles;
 
   starpu_data_map_filters(a_hdl, 2, &fl, &fm);
   launch_codelets(nb_vert_tiles, nb_horiz_tiles, a_hdl); 
@@ -244,6 +275,10 @@ void elim_co(int l,int m, int thrds, int bs) {
 
   starpu_shutdown();
 
+  for (i=0; i< l*m; i++) {
+    printf("a[%u] = %u\n", i, a[i]);
+    //a[i]  = rand();
+  }
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()
