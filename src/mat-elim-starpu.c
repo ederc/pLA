@@ -22,12 +22,12 @@ unsigned int *neg_inv_piv;
 
 static void getri(void *descr[], int type) {
   unsigned int i, j, k;
-  unsigned int *sub_a = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int x_dim  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned int y_dim  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int ld_a   = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned int inv    = 0;
-  unsigned int mult   = 0;
+  unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int y_dim    = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int mult     = 0;
  
   printf("x_dim = %u\n", x_dim);
   printf("y_dim = %u\n", y_dim);
@@ -35,11 +35,11 @@ static void getri(void *descr[], int type) {
   for (i = 0; i < y_dim-1; ++i) {  
     // compute inverse
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-    inv = negInverseModP(sub_a[i+i*ld_a], prime);
-    printf("inv  = %u\n", inv);
+    neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
+    printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = inv * sub_a[i+j*ld_a];
+      mult  = neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a];
       printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
       printf("mult      = %u\n", mult);
       sub_a[i+j*ld_a] = mult;
@@ -47,8 +47,6 @@ static void getri(void *descr[], int type) {
         sub_a[k+j*ld_a]  +=  sub_a[k+i*ld_a] * mult;
       }
     }
-    // store corresponding multiple for next tile
-    printf("--< sub_a[%u] = %u\n", i+(j-1)*ld_a,sub_a[i+(j-1)*ld_a]);
   }  
 }
 
@@ -75,8 +73,7 @@ static void gessm(void *descr[], int type) {
   unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-
-  unsigned int mult   = 0;
+  unsigned int mult     = 0;
  
   printf("ld_a  = %u\n", ld_a);
   for (i = 0; i < x_dim_a - 1; ++i) {  
@@ -106,6 +103,36 @@ struct starpu_codelet gessm_cl = {
 
 
 static void trsti(void *descr[], int type) {
+  unsigned int i, j, k;
+  unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int mult     = 0;
+
+  printf("x_dim_a = %u\n", x_dim_a);
+  printf("y_dim_a = %u\n", y_dim_a);
+  printf("ld_a  = %u\n", ld_a);
+  for (i = 0; i < x_dim_a; ++i) {  
+    // compute inverse
+    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
+    printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
+    for (j = 0; j < y_dim_b; ++j) {
+      // multiply by corresponding coeff
+      mult  = neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a];
+      printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
+      printf("mult      = %u\n", mult);
+      sub_b[i+j*ld_a] = mult;
+      for (k = i+1; k < x_dim_b; ++k) {
+        sub_b[k+j*ld_a]  +=  sub_a[k+i*ld_a] * mult;
+      }
+    }
+  }  
+ 
 }
 
 static void trsti_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -256,7 +283,9 @@ void elim_co(int l,int m, int thrds, int bs) {
 
   struct timeval start, stop;
   clock_t cStart, cStop;
-  int i, j, k;
+  unsigned int i, j, k;
+  unsigned int boundary = (l>m) ? m : l;
+  starpu_malloc((void **)&neg_inv_piv, boundary * sizeof(unsigned int));
 
   unsigned int *a;
   starpu_malloc((void **)&a, l * m * sizeof(unsigned int));
