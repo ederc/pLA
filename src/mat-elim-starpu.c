@@ -16,11 +16,86 @@
 
 // cache-oblivious implementation
 
-unsigned int prime      = 65521;
+unsigned int prime      = 32003;
 unsigned int blocksize  = 0;
 unsigned int *neg_inv_piv;
 
+// multiplies A*B^T and stores it in *this
+void elim(unsigned int *a, int l,int m) {
+
+  //C.resize(l*m);
+  printf("Naive Gaussian Elimination\n");
+  struct timeval start, stop;
+  clock_t cStart, cStop;
+  int i, j, k;
+  unsigned int sum = 0;
+ 
+  unsigned int boundary = (l > m) ? m : l;
+  unsigned int inv, mult;
+
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+  
+  for (i = 0; i < boundary; ++i) {
+    inv = negInverseModP(a[i+i*m], prime);
+    for (j = i+1; j < l; ++j) {
+      mult = a[i+j*m] * inv;
+      mult %= prime;
+      for (k = i+1; k < m; ++k) {
+        a[k+j*m]  += a[k+i*m] * mult;
+        a[k+j*m]  %= prime;
+      }
+    }
+  }
+  printf("--------------------------------------------------------\n");
+  printf("SEQ RESULTS\n");
+  printf("--------------------------------------------------------\n");
+  for (i=0; i<l; ++i) {
+    for (j=i; j<m; ++j) {
+      printf("a[%d] = %u, %d, %d\n", j+i*m, a[j+i*m], i, j);
+    }
+  }
+  gettimeofday(&stop, NULL);
+  cStop = clock();
+  // compute FLOPS:
+  // assume addition and multiplication in the mult kernel are 2 operations
+  // done A.nRows() * B.nRows() * B.nCols()
+
+  double flops = 0;
+  flops = countGEPFlops(l, m);
+  float epsilon = 0.0000000001;
+  double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
+                    (stop.tv_usec - start.tv_usec)) / 1e6;
+  double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
+  char buffer[50];
+  // get digits before decimal point of cputime (the longest number) and setw
+  // with it: digits + 1 (point) + 4 (precision) 
+  int digits = sprintf(buffer,"%.0f",cputime);
+  double ratio = cputime/realtime;
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("Method:           Raw sequential\n");
+  printf("Real time:        %.4f sec\n", realtime);
+  printf("CPU time:         %.4f sec\n", cputime);
+  if (cputime > epsilon)
+    printf("CPU/real time:    %.4f\n", ratio);
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
+  printf("---------------------------------------------------\n");
+}
+
+
 static void getri(void *descr[], int type) {
+  // Computes the Echelon form of A, stores the corresponding inverted multiples
+  // in the lower part
+  // ------------------------------
+  // | A |   |   |   |   |   |    | 
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // ------------------------------
   unsigned int i, j, k;
   unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
@@ -29,22 +104,24 @@ static void getri(void *descr[], int type) {
   unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned int mult     = 0;
  
+  printf("\n --- GETRI ---\n");
   printf("x_dim = %u\n", x_dim);
   printf("y_dim = %u\n", y_dim);
   printf("ld_a  = %u\n", ld_a);
-  for (i = 0; i < y_dim-1; ++i) {  
+  for (i = 0; i < y_dim; ++i) {  
     // compute inverse
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
     printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a];
+      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]) % prime;
       printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
       printf("mult      = %u\n", mult);
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
-        sub_a[k+j*ld_a]  +=  sub_a[k+i*ld_a] * mult;
+        sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
+        sub_a[k+j*ld_a] %=  prime;
       }
     }
   }  
@@ -65,6 +142,17 @@ struct starpu_codelet getri_cl = {
 
 
 static void gessm(void *descr[], int type) {
+  // B reduces itself using the  corresponding inverted multiples that
+  // are already stored in the lower part of A
+  // ------------------------------
+  // | A |   | B |   |   |   |    | 
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // ------------------------------
   unsigned int i, j, k;
   unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
@@ -75,6 +163,7 @@ static void gessm(void *descr[], int type) {
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
  
+  printf("\n --- GESSM ---\n");
   printf("ld_a  = %u\n", ld_a);
   for (i = 0; i < x_dim_a - 1; ++i) {  
     for (j = i+1; j < y_dim_a ; ++j) {  
@@ -82,7 +171,9 @@ static void gessm(void *descr[], int type) {
       printf("mult      = %u\n", mult);
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
-        sub_b[k+j*ld_a] +=  sub_b[k+i*ld_a] * mult;
+        sub_b[k+j*ld_a] +=  (sub_b[k+i*ld_a] * mult);
+        sub_b[k+j*ld_a] %=  prime;
+        printf("sub_b[%u] = %u\n", k+j*ld_a,sub_b[k+j*ld_a]);
       }
     }
   }
@@ -103,6 +194,17 @@ struct starpu_codelet gessm_cl = {
 
 
 static void trsti(void *descr[], int type) {
+  // B gets reduced by A (already in Echelon form), corresponding inverted
+  // multiples are stored in B
+  // ------------------------------
+  // | A |   |   |   |   |   |    | 
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // | B |   |   |   |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // ------------------------------
   unsigned int i, j, k;
   unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
@@ -113,7 +215,8 @@ static void trsti(void *descr[], int type) {
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
-
+  
+  printf("\n --- TRSTI ---\n");
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
   printf("ld_a  = %u\n", ld_a);
@@ -123,12 +226,14 @@ static void trsti(void *descr[], int type) {
     printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
-      mult  = neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a];
+      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]) % prime;
       printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
       printf("mult      = %u\n", mult);
       sub_b[i+j*ld_a] = mult;
+      printf("<> sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
       for (k = i+1; k < x_dim_b; ++k) {
-        sub_b[k+j*ld_a]  +=  sub_a[k+i*ld_a] * mult;
+        sub_b[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
+        sub_b[k+j*ld_a] %=  prime;
       }
     }
   }  
@@ -150,6 +255,53 @@ struct starpu_codelet trsti_cl = {
 
 
 static void ssssm(void *descr[], int type) {
+  // C = C + A * B where A consists of all corresponding inverted multiples
+  // ------------------------------
+  // | \ |   |   | B |   |   |    | 
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // |----------------------------|
+  // | A |   |   | C |   |   |    |
+  // |----------------------------|
+  // |   |   |   |   |   |   |    |
+  // ------------------------------
+  unsigned int i, j, k;
+  unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int *sub_c   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
+  unsigned int x_dim_c  = STARPU_MATRIX_GET_NX(descr[2]);
+  unsigned int y_dim_c  = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int mult     = 0;
+
+  assert(x_dim_b == x_dim_c);
+  assert(y_dim_a == y_dim_c);
+
+  printf("\n --- SSSSM ---\n");
+  printf("x_dim_a = %u\n", x_dim_a);
+  printf("y_dim_a = %u\n", y_dim_a);
+  printf("ld_a  = %u\n", ld_a);
+  printf("offset_a  = %u\n", offset_a);
+  for (i = 0; i < x_dim_a; ++i) {  
+    // compute inverse
+    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
+    for (j = 0; j < y_dim_a; ++j) {
+      // multiply by corresponding coeff
+      for (k = 0; k < x_dim_b; ++k) {
+        printf("sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
+        printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
+        printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_a]);
+        sub_c[k+j*ld_a] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_a]) ;
+        sub_c[k+j*ld_a] %=  prime;
+        printf("-- sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
+      }
+    }
+  }  
 }
 
 static void ssssm_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -289,13 +441,18 @@ void elim_co(int l,int m, int thrds, int bs) {
 
   unsigned int *a;
   starpu_malloc((void **)&a, l * m * sizeof(unsigned int));
+  unsigned int *b;
+  starpu_malloc((void **)&b, l * m * sizeof(unsigned int));
   
   srand(time(NULL));
-  for (i=0; i< l*m; i++) {
-    a[i]  = i+1;
+  for (i=0; i< l*m ; i++) {
+    //a[i+l*m/2]  = 100 - i;
+    a[i]  = rand() % prime;
+    b[i]  = a[i];
     printf("a[%u] = %u\n", i, a[i]);
-    //a[i]  = rand();
+    printf("b[%u] = %u\n", i, b[i]);
   }
+  elim(b, l, m);
 
   printf("Cache-oblivious Gaussian Elimination\n");
   
@@ -326,10 +483,24 @@ void elim_co(int l,int m, int thrds, int bs) {
 
   starpu_shutdown();
 
-  for (i=0; i< l*m; i++) {
-    printf("a[%u] = %u\n", i, a[i]);
-    //a[i]  = rand();
+  printf("--------------------------------------------------------\n");
+  printf("STARPU RESULTS\n");
+  printf("--------------------------------------------------------\n");
+  for (i=0; i<l; ++i) {
+    for (j=i; j<m; ++j) {
+      printf("a[%d] = %u\n", j+i*m, a[j+i*m]);
+    }
   }
+  unsigned int ctr  = 0;
+  for (i=0; i<l; ++i) {
+    for (j=i; j<m; ++j) {
+      ctr++;
+      if (a[j+i*m] != b[j+i*m]) {
+        printf("not matchting: a[%d] = %u =/= %u b[%d]\n", j+i*m, a[j+i*m], b[j+i*m], j+i*m);
+      }
+    }
+  }
+  printf("%u elements checked\n",ctr);
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()
