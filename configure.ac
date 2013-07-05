@@ -227,6 +227,7 @@ dnl Search for LAPACK
 AX_LAPACK()
 
 dnl Search for Intel TBB
+enable_tbb=0
 AC_CHECK_LIB([tbb], [main], [
     AC_DEFINE([HAVE_INTEL_TBB],[],"Intel TBB available.")
     enable_tbb=1
@@ -241,6 +242,7 @@ dnl Search for KAAPI
     ], [echo "libkaapi not found."])
 
 dnl Search for KAAPIC
+enable_kaapic=0
 AC_CHECK_LIB([kaapic], [main], [
     enable_kaapic=1
     AC_DEFINE([HAVE_KAAPIC],[],"KAAPIC available.")
@@ -254,8 +256,10 @@ dnl Search for KAAPI++
 AM_CONDITIONAL(ENABLE_KAAPIC,test "$enable_kaapic" -eq 1)
 
 dnl Search for STARPU
- AC_CHECK_LIB([starpu], [main], [
+enable_starpu=0
+ AC_CHECK_LIB([starpu-1.1], [main], [
     AC_DEFINE([HAVE_STARPU],[],"STARPU available.")
+    enable_starpu=1
     ], [echo "libstarpu not found."])
 
 AM_CONDITIONAL(ENABLE_STARPU,test "$enable_starpu" -eq 1)

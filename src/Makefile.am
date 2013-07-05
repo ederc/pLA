@@ -11,7 +11,6 @@ bin_PROGRAMS = 	\
 	mult-seq 			\
 	elim-seq	 		\
 	mult-omp 			\
-	mult-starpu 	\
 	elim-omp 			\
 	mult-pthrd	 	\
 	elim-pthrd
@@ -74,7 +73,7 @@ if ENABLE_STARPU
 mult_starpu_CFLAGS= $(AM_CFLAGS)
 mult_starpu_LDADD= -lstarpu
 mult_starpu_SOURCES= 	\
-	mat-mult-starpu.c
+	block-mat-mult-starpu.c
 endif
 CLEANFILES=	
 
