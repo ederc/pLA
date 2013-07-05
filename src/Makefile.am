@@ -11,6 +11,7 @@ bin_PROGRAMS = 	\
 	mult-seq 			\
 	elim-seq	 		\
 	mult-omp 			\
+	mult-starpu 	\
 	elim-omp 			\
 	mult-pthrd	 	\
 	elim-pthrd
@@ -83,6 +84,7 @@ DISTCLEANFILES=	\
 	mult-omp			\
 	mult-kaapi		\
 	mult-pthrd		\
+	mult-starpu		\
 	elim-seq			\
 	elim-tbb			\
 	elim-omp			\

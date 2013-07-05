@@ -16,7 +16,7 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 currentdir = os.getcwd()
 
 parser = argparse.ArgumentParser(description='Visualizes already\
-computed benchmarks from F4RT.')
+computed benchmarks from pLA.')
 parser.add_argument('-d', '--directory', required=True,
     help='Directory where the benchmark file is included.')
 parser.add_argument('-a', '--alg', required=True,

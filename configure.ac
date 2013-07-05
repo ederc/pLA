@@ -183,7 +183,7 @@ else
 fi
 # SSE2 support
 AC_ARG_ENABLE([sse2],
-        AS_HELP_STRING([--disable-sse2], [do not use SSE2 instruction set.]),
+        AS_HELP_STRING([--disable-sse2], [don't use SSE2 instruction set.]),
 	, [if test "$x_wrapword" = "yes"; then enable_sse2="no"; else enable_sse2="yes"; fi])
 
 AS_IF([test "x$enable_sse2" != "xno"], [
@@ -197,6 +197,7 @@ AS_IF([test "x$enable_sse2" != "xno"], [
           fi
    esac
 ])
+AX_EXT() # SSE2 is slower on the Opteron
 if test x"$ax_cv_have_sse2_ext" = x"yes"; then
   PLA_HAVE_SSE2=1
 else
@@ -251,6 +252,13 @@ dnl Search for KAAPI++
     ], [echo "libkaapi++ not found."])
 
 AM_CONDITIONAL(ENABLE_KAAPIC,test "$enable_kaapic" -eq 1)
+
+dnl Search for STARPU
+ AC_CHECK_LIB([starpu], [main], [
+    AC_DEFINE([HAVE_STARPU],[],"STARPU available.")
+    ], [echo "libstarpu not found."])
+
+AM_CONDITIONAL(ENABLE_STARPU,test "$enable_starpu" -eq 1)
 
 # TODO -- needs test for starpu! -- TODO
 enable_starpu=0

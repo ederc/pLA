@@ -35,7 +35,7 @@ Generates two random matrices a and b with either float\n\
 or uint16 entries. these matrices are then multiplied,\n\
 thus it is enough to predefine #rows of a, #cols of a\n\
 and #cols of b. The multiplication is performed in various\n\
-combinations of the f4rt dense matrix multiplication\n\
+combinations of the pLA dense matrix multiplication\n\
 implementation. afterwards the stored results are visualized.',
 formatter_class=RawTextHelpFormatter)
 parser.add_argument('-a','--alg', required=True,
