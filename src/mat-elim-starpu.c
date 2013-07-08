@@ -13,7 +13,8 @@
 #include "include/pla-config.h"
 #include "mat-elim-tools.h"
 
-
+#define DEBUG 0
+#define CHECK_RESULT 1
 // cache-oblivious implementation
 
 unsigned int prime      = 32003;
@@ -104,20 +105,26 @@ static void getri(void *descr[], int type) {
   unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned int mult     = 0;
  
+#if DEBUG
   printf("\n --- GETRI ---\n");
   printf("x_dim = %u\n", x_dim);
   printf("y_dim = %u\n", y_dim);
   printf("ld_a  = %u\n", ld_a);
+#endif
   for (i = 0; i < y_dim; ++i) {  
     // compute inverse
-    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
+#if DEBUG
+    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
+#endif
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]) % prime;
+#if DEBUG
       printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
       printf("mult      = %u\n", mult);
+#endif
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
@@ -163,17 +170,23 @@ static void gessm(void *descr[], int type) {
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
  
+#if DEBUG
   printf("\n --- GESSM ---\n");
   printf("ld_a  = %u\n", ld_a);
+#endif
   for (i = 0; i < x_dim_a - 1; ++i) {  
     for (j = i+1; j < y_dim_a ; ++j) {  
+#if DEBUG
       printf("i %u -- j %u\n",i,j);
       printf("mult      = %u\n", mult);
+#endif
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
         sub_b[k+j*ld_a] +=  (sub_b[k+i*ld_a] * mult);
         sub_b[k+j*ld_a] %=  prime;
+#if DEBUG
         printf("sub_b[%u] = %u\n", k+j*ld_a,sub_b[k+j*ld_a]);
+#endif
       }
     }
   }
@@ -216,21 +229,29 @@ static void trsti(void *descr[], int type) {
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
   
+#if DEBUG
   printf("\n --- TRSTI ---\n");
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
   printf("ld_a  = %u\n", ld_a);
+#endif
   for (i = 0; i < x_dim_a; ++i) {  
     // compute inverse
+#if DEBUG
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
+#endif
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]) % prime;
+#if DEBUG
       printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
       printf("mult      = %u\n", mult);
+#endif
       sub_b[i+j*ld_a] = mult;
+#if DEBUG
       printf("<> sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
+#endif
       for (k = i+1; k < x_dim_b; ++k) {
         sub_b[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
         sub_b[k+j*ld_a] %=  prime;
@@ -282,23 +303,31 @@ static void ssssm(void *descr[], int type) {
   assert(x_dim_b == x_dim_c);
   assert(y_dim_a == y_dim_c);
 
+#if DEBUG
   printf("\n --- SSSSM ---\n");
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
   printf("ld_a  = %u\n", ld_a);
   printf("offset_a  = %u\n", offset_a);
+#endif
   for (i = 0; i < x_dim_a; ++i) {  
     // compute inverse
+#if DEBUG
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
+#endif
     for (j = 0; j < y_dim_a; ++j) {
       // multiply by corresponding coeff
       for (k = 0; k < x_dim_b; ++k) {
+#if DEBUG
         printf("sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
         printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
         printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_a]);
+#endif
         sub_c[k+j*ld_a] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_a]) ;
         sub_c[k+j*ld_a] %=  prime;
+#if DEBUG
         printf("-- sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
+#endif
       }
     }
   }  
@@ -342,7 +371,9 @@ static void launch_codelets(unsigned int nb_vert_tiles,
   // first do GETRI
   for (i = 0; i < nb_vert_tiles; ++i) {
     nb_tasks = rem_horiz_tiles * rem_vert_tiles;
+#if DEBUG
     printf("horiz_tiles %u -- vert_tiles %u ===>> k %u\n",rem_horiz_tiles, rem_vert_tiles, nb_tasks);
+#endif
     struct starpu_task **tasks;
     starpu_malloc((void **)&tasks, nb_tasks * sizeof(struct starpu_task *));
     for (j = 0; j < nb_tasks; ++j)
@@ -358,9 +389,11 @@ static void launch_codelets(unsigned int nb_vert_tiles,
     
     // index of last ssssm entry in tasks array is 
     // idx_trsti + ((rem_vert_tiles - 1) * (rem_horiz_tiles) - 1) - 1
+#if DEBUG
     printf("idx_gessm %u\n", idx_gessm);
     printf("idx_trsti %u\n", idx_trsti);
     printf("idx_ssssm %u\n", idx_ssssm);
+#endif
     // declare dependencies of the tasks
     k = 0;
     for (j = idx_gessm; j < rem_horiz_tiles; ++j) {
@@ -373,7 +406,9 @@ static void launch_codelets(unsigned int nb_vert_tiles,
     k = 0;
     for (j = idx_trsti; j < rem_vert_tiles + idx_trsti - 1; ++j) {
       k++;
+#if DEBUG
       printf("k %u -- i+k %u\n",k,i+k);
+#endif
       tasks[j]->cl  = &trsti_cl;
       tasks[j]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, i, i);
       tasks[j]->handles[1]  = starpu_data_get_sub_data(a_hdl, 2, i+k, i);
@@ -381,14 +416,16 @@ static void launch_codelets(unsigned int nb_vert_tiles,
     }
     j = idx_ssssm;
     // ssssm depends on all previous defined tasks
+#if DEBUG
     printf("idx_ssssm - idx_trsti = %u\n",idx_ssssm - idx_trsti);
     printf("(nb_horiz_tiles - i) * (nb_vert_tiles - i) = %u\n",(nb_horiz_tiles - i) * (nb_vert_tiles - i));
-    //assert(idx_ssssm - idx_trsti == (nb_horiz_tiles - 1 - i) * (nb_vert_tiles - 1 - i));
+#endif
     for (k = i+1; k < nb_horiz_tiles; ++k) {
       for (l = i+1; l < nb_vert_tiles; ++l) {
-    //for (j = idx_trsti; j < idx_ssssm; ++j) {
+#if DEBUG
         printf("j %u\n",j);
         printf("k %u -- l %u\n",k,l);
+#endif
         tasks[j]->cl  = &ssssm_cl;
         tasks[j]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, k, i);
         tasks[j]->handles[1]  = starpu_data_get_sub_data(a_hdl, 2, i, l);
@@ -402,7 +439,6 @@ static void launch_codelets(unsigned int nb_vert_tiles,
     for (j = 0; j < nb_tasks; ++j) {
       ret = starpu_task_submit(tasks[j]);
     }
-    printf("i %u\n",i);
   
     rem_vert_tiles--;
     rem_horiz_tiles--;
@@ -448,11 +484,15 @@ void elim_co(int l,int m, int thrds, int bs) {
   for (i=0; i< l*m ; i++) {
     //a[i+l*m/2]  = 100 - i;
     a[i]  = rand() % prime;
+#if CHECK_RESULT
     b[i]  = a[i];
     printf("a[%u] = %u\n", i, a[i]);
     printf("b[%u] = %u\n", i, b[i]);
+#endif
   }
+#if CHECK_RESULT
   elim(b, l, m);
+#endif
 
   printf("Cache-oblivious Gaussian Elimination\n");
   
@@ -478,11 +518,7 @@ void elim_co(int l,int m, int thrds, int bs) {
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  starpu_data_unpartition(a_hdl, 0);
-  starpu_data_unregister(a_hdl);
-
-  starpu_shutdown();
-
+#if DEBUG
   printf("--------------------------------------------------------\n");
   printf("STARPU RESULTS\n");
   printf("--------------------------------------------------------\n");
@@ -491,16 +527,27 @@ void elim_co(int l,int m, int thrds, int bs) {
       printf("a[%d] = %u\n", j+i*m, a[j+i*m]);
     }
   }
-  unsigned int ctr  = 0;
+#endif
+#if CHECK_RESULT
+  unsigned int ctr  = 0, ctr2 = 0;
   for (i=0; i<l; ++i) {
     for (j=i; j<m; ++j) {
       ctr++;
       if (a[j+i*m] != b[j+i*m]) {
+        ctr2++;
         printf("not matchting: a[%d] = %u =/= %u b[%d]\n", j+i*m, a[j+i*m], b[j+i*m], j+i*m);
       }
     }
   }
-  printf("%u elements checked\n",ctr);
+  printf("%u / %u elements NOT matching\n", ctr2, ctr);
+#endif
+
+  //starpu_data_unpartition(a_hdl, 0);
+  //starpu_data_unregister(a_hdl);
+  starpu_free(a);
+  starpu_free(b);
+  starpu_shutdown();
+
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()
@@ -519,7 +566,7 @@ void elim_co(int l,int m, int thrds, int bs) {
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("Method:           StarPU\n");
   printf("#Threads:         %d\n", threadNumber);
-  printf("Chunk size:       %d\n", bs);
+  printf("Chunk size:       %d\n", tile_size);
   printf("Real time:        %.4f sec\n", realtime);
   printf("CPU time:         %.4f sec\n", cputime);
   if (cputime > epsilon)
