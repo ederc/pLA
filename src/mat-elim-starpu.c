@@ -26,16 +26,12 @@ void elim(unsigned int *a, int l,int m) {
 
   //C.resize(l*m);
   printf("Naive Gaussian Elimination\n");
-  struct timeval start, stop;
-  clock_t cStart, cStop;
   int i, j, k;
   unsigned int sum = 0;
  
   unsigned int boundary = (l > m) ? m : l;
   unsigned int inv, mult;
 
-  gettimeofday(&start, NULL);
-  cStart  = clock();
   
   for (i = 0; i < boundary; ++i) {
     inv = negInverseModP(a[i+i*m], prime);
@@ -56,32 +52,6 @@ void elim(unsigned int *a, int l,int m) {
       printf("a[%d] = %u, %d, %d\n", j+i*m, a[j+i*m], i, j);
     }
   }
-  gettimeofday(&stop, NULL);
-  cStop = clock();
-  // compute FLOPS:
-  // assume addition and multiplication in the mult kernel are 2 operations
-  // done A.nRows() * B.nRows() * B.nCols()
-
-  double flops = 0;
-  flops = countGEPFlops(l, m);
-  float epsilon = 0.0000000001;
-  double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
-                    (stop.tv_usec - start.tv_usec)) / 1e6;
-  double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
-  char buffer[50];
-  // get digits before decimal point of cputime (the longest number) and setw
-  // with it: digits + 1 (point) + 4 (precision) 
-  int digits = sprintf(buffer,"%.0f",cputime);
-  double ratio = cputime/realtime;
-  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Method:           Raw sequential\n");
-  printf("Real time:        %.4f sec\n", realtime);
-  printf("CPU time:         %.4f sec\n", cputime);
-  if (cputime > epsilon)
-    printf("CPU/real time:    %.4f\n", ratio);
-  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
-  printf("---------------------------------------------------\n");
 }
 
 
@@ -513,7 +483,12 @@ void elim_co(int l,int m, int thrds, int bs) {
   fl.nchildren    = nb_horiz_tiles;
 
   starpu_data_map_filters(a_hdl, 2, &fm, &fl);
+
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+
   launch_codelets(nb_vert_tiles, nb_horiz_tiles, a_hdl); 
+  starpu_task_wait_for_all();
 
   gettimeofday(&stop, NULL);
   cStop = clock();
@@ -529,12 +504,16 @@ void elim_co(int l,int m, int thrds, int bs) {
   }
 #endif
 #if CHECK_RESULT
-  unsigned int ctr  = 0, ctr2 = 0;
+  unsigned int ctr  = 0, ctr2 = 0, ctr3 = 0;
   for (i=0; i<l; ++i) {
     for (j=i; j<m; ++j) {
       ctr++;
       if (a[j+i*m] != b[j+i*m]) {
         ctr2++;
+        if (j+i*m - ctr3 != 1) {
+          printf("\n");
+        }
+        ctr3 = j+i*m;
         printf("not matchting: a[%d] = %u =/= %u b[%d]\n", j+i*m, a[j+i*m], b[j+i*m], j+i*m);
       }
     }
