@@ -18,9 +18,24 @@
 #define CHECK_RESULT 0
 // cache-oblivious implementation
 
-unsigned int prime      = 32003;
-unsigned int blocksize  = 0;
-unsigned int *neg_inv_piv;
+typedef unsigned int TYPE;
+
+TYPE *neg_inv_piv;
+TYPE *A, *A_saved;
+static unsigned prime     = 32003;
+static unsigned long l    = 4096;
+static unsigned long m    = 4096;
+static unsigned nblocks   = 16;
+static unsigned check     = 0;
+static unsigned pivot     = 0;
+static unsigned no_stride = 0;
+static unsigned profile   = 0;
+static unsigned bound     = 0;
+static unsigned bounddeps = 0;
+static unsigned boundprio = 0;
+static unsigned no_prio   = 0;
+
+#define FPRINTF(ofile, fmt, ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ## __VA_ARGS__); }} while(0)
 
 #define TAG11(k)	((starpu_tag_t)( (1ULL<<60) | (unsigned long long)(k)))
 #define TAG12(k,i)	((starpu_tag_t)(((2ULL<<60) | (((unsigned long long)(k))<<32)	\
@@ -31,48 +46,71 @@ unsigned int *neg_inv_piv;
 					| ((unsigned long long)(i)<<16)	\
 					| (unsigned long long)(j))))
 
-static unsigned no_prio = 0;
+static void parse_args(int argc, char **argv)
+{
+	int i;
+	for (i = 1; i < argc; i++)
+	{
+		if (strcmp(argv[i], "-l") == 0)
+		{
+			char *argptr;
+			l = strtol(argv[++i], &argptr, 10);
+		}
 
+    else if (strcmp(argv[i], "-m") == 0)
+		{
+			char *argptr;
+			m = strtol(argv[++i], &argptr, 10);
+		}
 
+		else if (strcmp(argv[i], "-nblocks") == 0)
+		{
+			char *argptr;
+			nblocks = strtol(argv[++i], &argptr, 10);
+		}
 
+		else if (strcmp(argv[i], "-check") == 0)
+		{
+			check = 1;
+		}
 
-// multiplies A*B^T and stores it in *this
-void elim(unsigned int *cc, unsigned int l, unsigned int m) {
-  unsigned int i, j, k;
+		else if (strcmp(argv[i], "-piv") == 0)
+		{
+			pivot = 1;
+		}
 
-  //C.resize(l*m);
-  printf("Naive Gaussian Elimination\n");
-  unsigned int sum = 0;
- 
-  unsigned int boundary = (l > m) ? m : l;
-  unsigned int inv, mult;
+		else if (strcmp(argv[i], "-no-stride") == 0)
+		{
+			no_stride = 1;
+		}
 
-  
-  for (i = 0; i < boundary; ++i) {
-    inv = negInverseModP(cc[i+i*m], prime);
-    for (j = i+1; j < l; ++j) {
-      mult = cc[i+j*m] * inv;
-      mult %= prime;
-#if DEBUG0
-      printf("i %u -- j %u\n",i,j);
-      printf("mult      = %u\n", mult);
-#endif
-      for (k = i+1; k < m; ++k) {
-#if DEBUG0
-      printf("i %u -- j %u -- k %u\n",i,j, k);
-#endif
-        cc[k+j*m]  += cc[k+i*m] * mult;
-        cc[k+j*m]  %= prime;
-#if DEBUG0
-        if (j==26 && (k==36 || k==37))
-          printf("sub_a[%u][%u] = %u\n", j,k,cc[k+j*m]);
-#endif
-      }
-    }
-  }
-  printf("NAIVE DONE\n");
+		else if (strcmp(argv[i], "-profile") == 0)
+		{
+			profile = 1;
+		}
+
+		else if (strcmp(argv[i], "-bound") == 0)
+		{
+			bound = 1;
+		}
+		else if (strcmp(argv[i], "-bounddeps") == 0)
+		{
+			bound = 1;
+			bounddeps = 1;
+		}
+		else if (strcmp(argv[i], "-bounddepsprio") == 0)
+		{
+			bound = 1;
+			bounddeps = 1;
+			boundprio = 1;
+		}
+		else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+		{
+			fprintf(stderr,"usage: lu [-size n] [-nblocks b] [-piv] [-no-stride] [-profile] [-bound] [-bounddeps] [-bounddepsprio]\n");
+			exit(0);
+		}
+	}
 }
-
 
 
 static void getri(void *descr[], int type) {
@@ -505,117 +543,6 @@ static int create_task_22(starpu_data_handle_t dataA, unsigned k, unsigned i, un
 	return ret;
 }
 
-
-static void launch_codelets(unsigned int nb_vert_tiles,
-    unsigned int nb_horiz_tiles, starpu_data_handle_t a_hdl, unsigned int *b) {
-  
-  unsigned int i, j, k, l, idx_gessm, idx_trsti, idx_ssssm, ret, nb_tasks;
-
-  // keep track of the number of remaining vertical and horizontal tiles
-  unsigned int rem_horiz_tiles  = nb_horiz_tiles;
-  unsigned int rem_vert_tiles   = nb_vert_tiles;
-
-  // create tasks needed for the first outer loop
-  // => only need to remove some of them for each inner looping
-  //    no recreation of tasks during the computation
-
-  // only 1 getri_task is needed at a time
-  // nb_horiz_tiles - 1 gessm_tasks are needed at the beginning
-  // nb_vert_tiles - 1 tstri_tasks are needed at the beginning
-  // (nb_vert_tiles - 1) * (nb_horiz_tiles -1) ssssm_tasks are needed at the beginning
-  // => 1 + (nb_horiz_tiles - 1) + (nb_vert_tiles - 1) + ((nb_vert_tiles - 1) *
-  //    (nb_horiz_tiles - 1))
-  //    =
-  //    nb_horiz_tiles * nb_vert_tiles
-  // first do GETRI
-  printf("seq-launch[%d][%d] = %u\n", 26,36, b[36+26*64]);
-  for (i = 0; i < nb_vert_tiles; ++i) {
-    printf("i %u -- seq-launch[%d][%d] = %u -- %p\n", i, 26,36, b[36+26*64], b[36+26*64]);
-    nb_tasks = rem_horiz_tiles * rem_vert_tiles;
-#if DEBUG
-    printf("horiz_tiles %u -- vert_tiles %u ===>> k %u\n",rem_horiz_tiles, rem_vert_tiles, nb_tasks);
-#endif
-    struct starpu_task **tasks;
-    starpu_malloc((void **)&tasks, nb_tasks * sizeof(struct starpu_task *));
-    for (j = 0; j < nb_tasks; ++j)
-      tasks[j] = starpu_task_create();
-
-    idx_gessm = 1;
-    idx_trsti = rem_horiz_tiles;
-    idx_ssssm = rem_horiz_tiles + rem_vert_tiles - 1;
-
-    // tasks[0] is always GETRI
-    tasks[0]->cl          = &getri_cl;
-    tasks[0]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, i, i);
-        tasks[0]->synchronous = 1;
-    
-    // index of last ssssm entry in tasks array is 
-    // idx_trsti + ((rem_vert_tiles - 1) * (rem_horiz_tiles) - 1) - 1
-#if DEBUG0
-    printf("idx_gessm %u\n", idx_gessm);
-    printf("idx_trsti %u\n", idx_trsti);
-    printf("idx_ssssm %u\n", idx_ssssm);
-#endif
-    // declare dependencies of the tasks
-    k = 0;
-    for (j = idx_gessm; j < rem_horiz_tiles; ++j) {
-      k++;
-      tasks[j]->cl          = &gessm_cl;
-      tasks[j]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, i, i);
-      tasks[j]->handles[1]  = starpu_data_get_sub_data(a_hdl, 2, i, i+k);
-        tasks[j]->synchronous = 1;
-      starpu_task_declare_deps_array(tasks[j], 1, tasks);
-    }
-    k = 0;
-    for (j = idx_trsti; j < rem_vert_tiles + idx_trsti - 1; ++j) {
-      k++;
-#if DEBUG
-      printf("k %u -- i+k %u\n",k,i+k);
-#endif
-      tasks[j]->cl  = &trsti_cl;
-      tasks[j]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, i, i);
-      tasks[j]->handles[1]  = starpu_data_get_sub_data(a_hdl, 2, i+k, i);
-        tasks[j]->synchronous = 1;
-      starpu_task_declare_deps_array(tasks[j], idx_trsti, tasks);
-    }
-    j = idx_ssssm;
-    // ssssm depends on all previous defined tasks
-#if DEBUG
-    printf("idx_ssssm - idx_trsti = %u\n",idx_ssssm - idx_trsti);
-    printf("(nb_horiz_tiles - i) * (nb_vert_tiles - i) = %u\n",(nb_horiz_tiles - i) * (nb_vert_tiles - i));
-#endif
-    for (k = i+1; k < nb_horiz_tiles; ++k) {
-      for (l = i+1; l < nb_vert_tiles; ++l) {
-#if DEBUG
-        printf("j %u\n",j);
-        printf("k %u -- l %u\n",k,l);
-#endif
-        tasks[j]->cl  = &ssssm_cl;
-        tasks[j]->handles[0]  = starpu_data_get_sub_data(a_hdl, 2, k, i);
-        tasks[j]->handles[1]  = starpu_data_get_sub_data(a_hdl, 2, i, l);
-        tasks[j]->handles[2]  = starpu_data_get_sub_data(a_hdl, 2, k, l);
-        tasks[j]->synchronous = 1;
-        starpu_task_declare_deps_array(tasks[j], idx_ssssm, tasks);
-        j++;
-      }
-    }
-
-    // submit all tasks
-    for (j = 0; j < nb_tasks; ++j) {
-      ret = starpu_task_submit(tasks[j]);
-    }
-  
-    printf("seq-launch[%d][%d] = %u - %p\n", 26,36, b[36+26*64], b[36+26*64]);
-    rem_vert_tiles--;
-    rem_horiz_tiles--;
-    printf("TASKS READY     %d\n", starpu_task_nready());
-    printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
-    starpu_task_wait_for_all();
-  }
-    printf("seq-launch[%d][%d] = %u - %p\n", 26,36, b[36+26*64], b[36+26*64]);
-
-}
-
 /*
  *	code to bootstrap the factorization
  */
@@ -673,140 +600,99 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned nblocks)
 	return 0;
 }
 
-
 static inline unsigned int get_tile_size() {
   return (unsigned int) floor(sqrt((double)__PLA_CPU_L1_CACHE / (8*3)));
 }
 
-void elim_co(int l,int m, int thrds, int bs) {
-
-  unsigned int *d = (unsigned int *)malloc(l * m * sizeof(unsigned int));
-
-  unsigned int i, j, k;
-  unsigned int boundary = (l>m) ? m : l;
-  neg_inv_piv = (unsigned int *)malloc(boundary * sizeof(unsigned int));
-
-  int ret = starpu_init(NULL);
-  int threadNumber  = starpu_worker_get_count();
-  
-  // compute size of tiles/slices for matrix
-  unsigned int tile_size;
-  if (bs == 0)
-    tile_size = get_tile_size();
-  else
-    tile_size = bs;
-
-  if (l < tile_size || m < tile_size)
-    tile_size = 2;
-
-  struct timeval start, stop;
-  clock_t cStart, cStop;
-  printf("Cache-oblivious Gaussian Elimination\n");
-  
-  starpu_malloc((void **)&*a, (unsigned int)l * m * sizeof(unsigned int));
-
-  srand(time(NULL));
-  unsigned int val;
-  for (i=0; i< l*m ; i++) {
-    //a[i+l*m/2]  = 100 - i;
-    val   = rand() % prime;
-    a[i]  = val;
-    //printf("a[%u] = %u\n", i, a[i]);
-    //printf("b[%u] = %u -- %p\n", i, d[i], d[i]);
-  }
-
-#if CHECK_RESULTS
-  memcpy(d, a, (unsigned int)l*m*sizeof(unsigned int));
-#endif
-  
-  starpu_data_handle_t a_hdl;
-  starpu_matrix_data_register(&a_hdl, 0, (uintptr_t)a,
-      m, l, m, sizeof(unsigned int));
-	/* We already enforce deps by hand */
-	starpu_data_set_sequential_consistency_flag(a_hdl, 0);
-
-  unsigned int nb_vert_tiles  = l/tile_size;
-  unsigned int nb_horiz_tiles = m/tile_size;
-  struct starpu_data_filter fl =
-  {
-    .filter_func  = starpu_matrix_filter_block,
-    .nchildren    = nb_horiz_tiles
-  };
-  struct starpu_data_filter fm =
-  {
-    .filter_func  = starpu_matrix_filter_vertical_block,
-    .nchildren    = nb_vert_tiles
-  };
-
-  starpu_data_map_filters(a_hdl, 2, &fm, &fl);
-  /*
-  struct starpu_task *naive_task;
-  starpu_malloc((void *)&naive_task, sizeof(struct starpu_task *));
-  naive_task  = starpu_task_create();
-  naive_task->cl          = &naive_cl;
-  naive_task->handles[0]  = d_hdl;
-
-  //naive_task->synchronous = 1;
-  ret = starpu_task_submit(naive_task);
-  starpu_task_wait_for_all();
-  starpu_data_acquire(d_hdl, STARPU_R);
-  starpu_data_release(d_hdl);
-  starpu_data_unregister(d_hdl);
-  */
-  gettimeofday(&start, NULL);
-  cStart  = clock();
-
-	//ret = dw_codelet_facto_v3(a_hdl, nb_vert_tiles);
-  launch_codelets(nb_vert_tiles, nb_horiz_tiles, a_hdl, d); 
-  gettimeofday(&stop, NULL);
-  cStop = clock();
-
-	/* gather all the data */
-	//starpu_data_unpartition(a_hdl, 0);
-	//starpu_data_unregister(a_hdl);
-  starpu_free(a);
-  starpu_shutdown();
-
-  //elim(d, l, m);
-
-#if DEBUG0
-  printf("--------------------------------------------------------\n");
-  printf("STARPU RESULTS\n");
-  printf("--------------------------------------------------------\n");
-  for (i=0; i<l; ++i) {
-    for (j=i; j<m; ++j) {
-      printf("spu[%d][%d] = %u\n", i,j, a[j+i*m]);
-    }
-  }
-  printf("--------------------------------------------------------\n");
-  printf("SEQ RESULTS AGAIN\n");
-  printf("--------------------------------------------------------\n");
-  for (i=0; i<l; ++i) {
-    for (j=i; j<m; ++j) {
-      printf("seq4[%d][%d] = %u\n", i,j, d[j+i*m]);
-    }
-  }
-#endif
-#if CHECK_RESULT
+static void check_result(void)
+{
+	unsigned i,j;
+  elim(A_saved, l, m);
   unsigned int ctr  = 0, ctr2 = 0, ctr3 = 0;
   for (i=0; i<l; ++i) {
     for (j=i; j<m; ++j) {
       ctr++;
-      if (a[j+i*m] != d[j+i*m]) {
+      if (A[j+i*m] != A_saved[j+i*m]) {
         ctr2++;
         if (j+i*m - ctr3 != 1) {
           printf("\n");
         }
         ctr3 = j+i*m;
-        printf("not matchting: a[%d][%d] = %u =/= %u d[%d][%d]\n", i,j, a[j+i*m], d[j+i*m], i,j);
+        printf("not matchting: A[%d][%d] = %u =/= %u A_saved[%d][%d]\n", i,j, A[j+i*m], A_saved[j+i*m], i,j);
       }
     }
   }
   printf("%u / %u elements NOT matching\n", ctr2, ctr);
+}
+
+static void init_matrix(void)
+{
+	/* allocate matrix */
+	starpu_malloc((void **)&A, (size_t)l*m*sizeof(TYPE));
+	STARPU_ASSERT(A);
+
+	starpu_srand48((long int)time(NULL));
+	/* starpu_srand48(0); */
+
+	/* initialize matrix content */
+	unsigned long i,j;
+	for (j = 0; j < l; j++)
+	{
+		for (i = 0; i < m; i++)
+		{
+			A[i + j*m] = (TYPE)starpu_drand48();
+#ifdef COMPLEX_LU
+			/* also randomize the imaginary component for complex number cases */
+			A[i + j*m] += (TYPE)(I*starpu_drand48());
 #endif
-  // compute FLOPS:
-  // assume addition and multiplication in the mult kernel are 2 operations
-  // done A.nRows() * B.nRows() * B.nCols()
+		}
+	}
+}
+
+static void save_matrix(void)
+{
+	A_saved = malloc((size_t)l*m*sizeof(TYPE));
+	STARPU_ASSERT(A_saved);
+
+	memcpy(A_saved, A, (size_t)l*m*sizeof(TYPE));
+}
+
+int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned nblocks)
+{
+  struct timeval start, stop;
+  clock_t cStart, cStop;
+  printf("Cache-oblivious Gaussian Elimination\n");
+  
+	starpu_data_handle_t dataA;
+
+	/* monitor and partition the A matrix into blocks :
+	 * one block is now determined by 2 unsigned (i,j) */
+	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, m, l, m, sizeof(TYPE));
+
+	/* We already enforce deps by hand */
+	starpu_data_set_sequential_consistency_flag(dataA, 0);
+
+	struct starpu_data_filter f =
+	{
+		.filter_func = starpu_matrix_filter_vertical_block,
+		.nchildren = nblocks
+	};
+
+	struct starpu_data_filter f2 =
+	{
+		.filter_func = starpu_matrix_filter_block,
+		.nchildren = nblocks
+	};
+
+	starpu_data_map_filters(dataA, 2, &f, &f2);
+
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+
+	int ret = dw_codelet_facto_v3(dataA, nblocks);
+
+  gettimeofday(&stop, NULL);
+  cStop = clock();
 
   double flops = 0;
   flops = countGEPFlops(l, m);
@@ -830,6 +716,105 @@ void elim_co(int l,int m, int thrds, int bs) {
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
   printf("---------------------------------------------------\n");
+
+	/* gather all the data */
+	starpu_data_unpartition(dataA, 0);
+	starpu_data_unregister(dataA);
+
+	return ret;
+}
+
+int main(int argc, char *argv[]) {
+	int ret;
+
+	parse_args(argc, argv);
+
+#ifdef STARPU_QUICK_CHECK
+	size /= 4;
+	nblocks /= 4;
+#endif
+
+	ret = starpu_init(NULL);
+	if (ret == -ENODEV)
+		return 77;
+	STARPU_CHECK_RETURN_VALUE(ret, "starpu_init");
+
+	starpu_cublas_init();
+
+	init_matrix();
+
+	unsigned *ipiv = NULL;
+	if (check)
+		save_matrix();
+
+	display_matrix(A, l, m, "A");
+
+	if (bound)
+		starpu_bound_start(bounddeps, boundprio);
+
+	if (profile)
+		starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
+
+
+	ret = lu_decomposition(A, l, m, nblocks);
+
+	if (profile)
+	{
+		FPRINTF(stderr, "Setting profile\n");
+		starpu_profiling_status_set(STARPU_PROFILING_DISABLE);
+		starpu_profiling_bus_helper_display_summary();
+	}
+
+	if (bound)
+	{
+		double min;
+		FPRINTF(stderr, "Setting bound\n");
+		starpu_bound_stop();
+		if (bounddeps)
+		{
+			FILE *f = fopen("lu.pl", "w");
+			starpu_bound_print_lp(f);
+			FPRINTF(stderr,"system printed to lu.pl\n");
+			fclose(f);
+			f = fopen("lu.mps", "w");
+			starpu_bound_print_mps(f);
+			FPRINTF(stderr,"system printed to lu.mps\n");
+			fclose(f);
+			f = fopen("lu.dot", "w");
+			starpu_bound_print_dot(f);
+			FPRINTF(stderr,"system printed to lu.mps\n");
+			fclose(f);
+		}
+		else
+		{
+			starpu_bound_compute(&min, NULL, 0);
+			if (min != 0.)
+				FPRINTF(stderr, "theoretical min: %f ms\n", min);
+		}
+	}
+
+	if (check)
+	{
+		FPRINTF(stderr, "Checking result\n");
+		if (pivot) {
+			pivot_saved_matrix(ipiv);
+			free(ipiv);
+		}
+
+		check_result();
+	}
+
+	starpu_free(A);
+
+	FPRINTF(stderr, "Shutting down\n");
+	starpu_cublas_shutdown();
+
+	starpu_shutdown();
+
+	if (ret == -ENODEV) return 77; else return 0;
+  // compute FLOPS:
+  // assume addition and multiplication in the mult kernel are 2 operations
+  // done A.nRows() * B.nRows() * B.nCols()
 }
 
 void print_help(int exval) {
@@ -857,7 +842,7 @@ void print_help(int exval) {
 int main(int argc, char *argv[]) {
   int opt;
   // default values
-  int l = 2000, m = 2000, t=1, bs=0, c=1;
+  int t=1, bs=0, c=1;
   // biggest prime < 2^16
 
   /* 
