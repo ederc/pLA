@@ -189,15 +189,15 @@ void base_case( unsigned int *M, const unsigned int k1, const unsigned int i1,
     // row 0
     const unsigned int istart  = (k1 == i1) ? k+1 : 0;
     for (unsigned int i = istart; i < size; i++) {
-      const unsigned int tmp = (M[k+k1+(i1+i)*cols] * inv_piv);
-      //const unsigned int tmp = (M[k+k1+(i1+i)*cols] * inv_piv) % prime;
+      //const unsigned int tmp = (M[k+k1+(i1+i)*cols] * inv_piv);
+      const unsigned int tmp = (M[k+k1+(i1+i)*cols] * inv_piv) % prime;
       // if the pivots are in the olumn part of the matrix as Mmdf then we can
       // always start at the next column (k+1), otherwise we need to start at
       // column 0
       const unsigned int jstart  = (k1 == j1) ? k+1 : 0;
       for (unsigned int j = jstart; j < size; j++) {
   	    M[(j1+j)+(i1+i)*cols]  +=  M[(j1+j)+(k1+k)*cols] * tmp;
-  	   // M[(j1+j)+(i1+i)*cols]  %=  prime;
+  	    M[(j1+j)+(i1+i)*cols]  %=  prime;
       }
     }
   }

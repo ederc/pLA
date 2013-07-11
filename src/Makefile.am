@@ -24,6 +24,7 @@ bin_PROGRAMS += elim-tbb
 endif
 if ENABLE_STARPU
 bin_PROGRAMS += mult-starpu
+bin_PROGRAMS += elim-starpu
 endif
 
 mult_seq_CFLAGS= $(AM_CFLAGS)
@@ -74,6 +75,10 @@ mult_starpu_CFLAGS= $(AM_CFLAGS)
 mult_starpu_LDADD= -lstarpu
 mult_starpu_SOURCES= 	\
 	block-mat-mult-starpu.c
+elim_starpu_CFLAGS= $(AM_CFLAGS)
+elim_starpu_LDADD= -lstarpu
+elim_starpu_SOURCES= 	\
+	block-mat-elim-starpu.c
 endif
 CLEANFILES=	
 

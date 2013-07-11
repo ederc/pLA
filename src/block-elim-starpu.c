@@ -13,9 +13,10 @@
 #include "include/pla-config.h"
 #include "mat-elim-tools.h"
 
+#define DEBUG00 0
 #define DEBUG0 0
 #define DEBUG 0
-#define CHECK_RESULT 0
+#define MODULAR 1
 // cache-oblivious implementation
 
 typedef unsigned int TYPE;
@@ -23,8 +24,8 @@ typedef unsigned int TYPE;
 TYPE *neg_inv_piv;
 TYPE *A, *A_saved;
 static unsigned prime     = 32003;
-static unsigned long l    = 4096;
-static unsigned long m    = 4096;
+static unsigned l         = 4096;
+static unsigned m         = 4096;
 static unsigned nblocks   = 16;
 static unsigned check     = 0;
 static unsigned pivot     = 0;
@@ -46,70 +47,128 @@ static unsigned no_prio   = 0;
 					| ((unsigned long long)(i)<<16)	\
 					| (unsigned long long)(j))))
 
-static void parse_args(int argc, char **argv)
+// multiplies A*B^T and stores it in *this
+void elim(unsigned int *cc, unsigned int l, unsigned int m) {
+  unsigned int i, j, k;
+
+  //C.resize(l*m);
+  unsigned int sum = 0;
+ 
+  unsigned int boundary = (l > m) ? m : l;
+  unsigned int inv, mult;
+
+  struct timeval start, stop;
+  clock_t cStart, cStop;
+  
+  gettimeofday(&start, NULL);
+  cStart  = clock();
+
+  for (i = 0; i < boundary; ++i) {
+    inv = negInverseModP(cc[i+i*m], prime);
+    for (j = i+1; j < l; ++j) {
+      mult = cc[i+j*m] * inv;
+      mult %= prime;
+#if DEBUG0
+      printf("i %u -- j %u\n",i,j);
+      printf("mult      = %u | %p\n", mult, &mult);
+#endif
+      for (k = i+1; k < m; ++k) {
+#if DEBUG
+      printf("i %u -- j %u -- k %u\n",i,j, k);
+#endif
+        cc[k+j*m]  += cc[k+i*m] * mult;
+        cc[k+j*m]  %= prime;
+      }
+    }
+  }
+  gettimeofday(&stop, NULL);
+  cStop = clock();
+  float epsilon = 0.0000000001;
+  double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
+                    (stop.tv_usec - start.tv_usec)) / 1e6;
+  double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
+  
+  double ratio = cputime/realtime;
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("Method:           Naive\n");
+  printf("Real time:        %.4f sec\n", realtime);
+  printf("CPU time:         %.4f sec\n", cputime);
+  if (cputime > epsilon)
+    printf("CPU/real time:    %.4f\n", ratio);
+  printf("---------------------------------------------------\n");
+
+}
+
+static void display_matrix(TYPE *a, unsigned l, unsigned m, unsigned ld, char *str)
 {
-	int i;
-	for (i = 1; i < argc; i++)
-	{
-		if (strcmp(argv[i], "-l") == 0)
-		{
-			char *argptr;
-			l = strtol(argv[++i], &argptr, 10);
-		}
+	FPRINTF(stdout, "***********\n");
+	FPRINTF(stdout, "Display matrix %s\n", str);
+  if (l < 65 && m < 65)
+  {
+    unsigned i,j;
+    for (j = 0; j < l; j++)
+    {
+      for (i = 0; i < m; i++)
+      {
+        FPRINTF(stdout, "%d|%p\t", a[i+j*ld],&a[i+j*ld]);
+      }
+      FPRINTF(stdout, "\n");
+    }
+  } else {
+    FPRINTF(stdout, "Matrix dimensions are too big => No printing\n");
+  }
+	FPRINTF(stdout, "***********\n");
+}
 
-    else if (strcmp(argv[i], "-m") == 0)
-		{
-			char *argptr;
-			m = strtol(argv[++i], &argptr, 10);
-		}
 
-		else if (strcmp(argv[i], "-nblocks") == 0)
-		{
-			char *argptr;
-			nblocks = strtol(argv[++i], &argptr, 10);
-		}
+void print_help(int exval) {
+  printf("DESCRIPTION\n");
+  printf("       Computes the Gaussian Elimination of a matrix A with\n");
+  printf("       unsigned integer entries.\n");
+  printf("       It uses StarPU.\n");
 
-		else if (strcmp(argv[i], "-check") == 0)
-		{
-			check = 1;
-		}
+  printf("OPTIONS\n");
+  printf("       -b SIZE   block- resp. chunksize\n");
+  printf("                 default: 16\n");
+  printf("       -c        check result against naive sequential GEP\n");
+  printf("       -h        print help\n");
+  printf("       -l ROWSA  row size of matrix A\n");
+  printf("                 default: 4096\n");
+  printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
+  printf("                 default: 4096\n");
 
-		else if (strcmp(argv[i], "-piv") == 0)
-		{
-			pivot = 1;
-		}
+  exit(exval);
+}
 
-		else if (strcmp(argv[i], "-no-stride") == 0)
-		{
-			no_stride = 1;
-		}
+static int parse_args(int argc, char **argv)
+{
+	int i, opt, ret = 0;
+  if(argc == 1) {
+    //fprintf(stderr, "This program needs arguments....\n\n");
+    //print_help(1);
+  }
 
-		else if (strcmp(argv[i], "-profile") == 0)
-		{
-			profile = 1;
-		}
-
-		else if (strcmp(argv[i], "-bound") == 0)
-		{
-			bound = 1;
-		}
-		else if (strcmp(argv[i], "-bounddeps") == 0)
-		{
-			bound = 1;
-			bounddeps = 1;
-		}
-		else if (strcmp(argv[i], "-bounddepsprio") == 0)
-		{
-			bound = 1;
-			bounddeps = 1;
-			boundprio = 1;
-		}
-		else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
-		{
-			fprintf(stderr,"usage: lu [-size n] [-nblocks b] [-piv] [-no-stride] [-profile] [-bound] [-bounddeps] [-bounddepsprio]\n");
-			exit(0);
-		}
-	}
+  while((opt = getopt(argc, argv, "hl:m:b:c")) != -1) {
+    switch(opt) {
+      case 'h':
+        print_help(0);
+        ret = 1;
+        break;
+      case 'l': 
+        l = atoi(strdup(optarg));
+        break;
+      case 'm': 
+        m = atoi(strdup(optarg));
+        break;
+      case 'b': 
+        nblocks = atoi(strdup(optarg));
+        break;
+      case 'c': 
+        check = 1;
+        break;
+    }
+  }
+  return ret;
 }
 
 
@@ -129,14 +188,20 @@ static void getri(void *descr[], int type) {
   unsigned int *sub_a   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[0]);
   unsigned int x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned int y_dim    = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  unsigned int offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
   unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned int mult     = 0;
  
-#if DEBUG0
+#if DEBUG00
   printf("\n --- GETRI ---\n");
+  printf("%p -- %p\n", &sub_a[0], &sub_a[1]);
+  printf("offset %u -- %u\n",offset_a,offset_a/(l+1)/nblocks);
+  printf("x_dim = %u\n", x_dim);
+  printf("y_dim = %u\n", y_dim);
+  printf("ld_a  = %u\n", ld_a);
 #endif
-#if DEBUG
+  offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
+#if DEBUG0
   printf("x_dim = %u\n", x_dim);
   printf("y_dim = %u\n", y_dim);
   printf("ld_a  = %u\n", ld_a);
@@ -144,25 +209,26 @@ static void getri(void *descr[], int type) {
   for (i = 0; i < y_dim; ++i) {  
     // compute inverse
     neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
-#if DEBUG
+#if DEBUG0
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-    printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
+    printf("getri inv  = %u || %p \n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
 #endif
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]); //% prime;
-#if DEBUG
-      printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
-      printf("mult      = %u\n", mult);
+      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]);
+#if MODULAR
+      mult  = mult % prime;
 #endif
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
-        //sub_a[k+j*ld_a] %=  prime;
+#if MODULAR
+        sub_a[k+j*ld_a] %=  prime;
+#endif
       }
     }
   }  
-#if DEBUG0
+#if DEBUG00
   printf("\n --- GETRI DONE ---\n");
   printf("TASKS READY     %d\n", starpu_task_nready());
   printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
@@ -205,8 +271,9 @@ static void gessm(void *descr[], int type) {
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
  
-#if DEBUG0
+#if DEBUG00
   printf("\n --- GESSM ---\n");
+  printf("%p -- %p\n", &sub_b[0], &sub_b[1]);
 #endif
 #if DEBUG0
   printf("ld_a  = %u\n", ld_a);
@@ -219,11 +286,13 @@ static void gessm(void *descr[], int type) {
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
 #if DEBUG0
-      printf("mult      = %u\n", mult);
+      printf("mult      = %u | %p\n", mult, sub_a[i+j*ld_a]);
       printf("i %u -- j %u -- k %u\n",i,j, k);
 #endif
         sub_b[k+j*ld_a] +=  (sub_b[k+i*ld_a] * mult);
-        //sub_b[k+j*ld_a] %=  prime;
+#if MODULAR
+        sub_b[k+j*ld_a] %=  prime;
+#endif
 #if DEBUG0
           printf("sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
 #endif
@@ -274,9 +343,11 @@ static void trsti(void *descr[], int type) {
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
   
-#if DEBUG0
+#if DEBUG00
   printf("\n --- TRSTI ---\n");
+  printf("%p -- %p\n", &sub_b[0], &sub_b[1]);
 #endif
+  offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
 #if DEBUG
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
@@ -284,24 +355,29 @@ static void trsti(void *descr[], int type) {
 #endif
   for (i = 0; i < x_dim_a; ++i) {  
     // compute inverse
-#if DEBUG
+#if DEBUG00
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-    printf("inv  = %u\n", neg_inv_piv[i+offset_a]);
+    printf("inv  = %u | %p\n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
 #endif
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]);// % prime;
-#if DEBUG
+      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]);
+#if MODULAR
+      mult  = mult % prime;
+#endif
+#if DEBUG00
       printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
-      printf("mult      = %u\n", mult);
+      printf("mult     = %u | %p\n", mult, &mult);
 #endif
       sub_b[i+j*ld_a] = mult;
-#if DEBUG
+#if DEBUG00
       printf("<> sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
 #endif
       for (k = i+1; k < x_dim_b; ++k) {
         sub_b[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
-        //sub_b[k+j*ld_a] %=  prime;
+#if MODULAR
+        sub_b[k+j*ld_a] %=  prime;
+#endif
       }
     }
   }  
@@ -354,8 +430,9 @@ static void ssssm(void *descr[], int type) {
   assert(x_dim_b == x_dim_c);
   assert(y_dim_a == y_dim_c);
 
-#if DEBUG0
+#if DEBUG00
   printf("\n --- SSSSM ---\n");
+  printf("%p -- %p\n", &sub_c[0], &sub_c[1]);
 #endif
 #if DEBUG
   printf("x_dim_a = %u\n", x_dim_a);
@@ -376,10 +453,17 @@ static void ssssm(void *descr[], int type) {
         printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
         printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_a]);
 #endif
+        /*
+        if (k == j) {
+          printf("!! sub_c[%u][%u] = %u\n", j+offset_c,k+offset_c,sub_c[k+j*ld_a]);
+          printf("!! sub_a[%u][%u] = %u | %p\n", j,i,sub_a[i+j*ld_a], &sub_a[i+j*ld_a]);
+          printf("!! sub_b[%u][%u] = %u | %p\n", i,k,sub_b[k+i*ld_a], &sub_b[k+i*ld_a]);
+        }
+        printf("%u += %u * %u\n",sub_c[k+j*ld_a],sub_a[i+j*ld_a],sub_b[k+i*ld_a]);
+        */
         sub_c[k+j*ld_a] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_a]) ;
-        //sub_c[k+j*ld_a] %=  prime;
-#if DEBUG
-        printf("-- sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
+#if MODULAR
+        sub_c[k+j*ld_a] %=  prime;
 #endif
       }
     }
@@ -428,6 +512,7 @@ static struct starpu_task *create_task_11(starpu_data_handle_t dataA, unsigned k
 	task->cl = &getri_cl;
 
 	/* which sub-data is manipulated ? */
+  //printf("GETRI: k %u\n", k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 
 	/* this is an important task */
@@ -454,6 +539,7 @@ static int create_task_12(starpu_data_handle_t dataA, unsigned k, unsigned j)
 	task->cl = &gessm_cl;
 
 	/* which sub-data is manipulated ? */
+  //printf("GESSM: j %u - k %u\n",j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j);
 
@@ -485,6 +571,7 @@ static int create_task_21(starpu_data_handle_t dataA, unsigned k, unsigned i)
 	task->cl = &trsti_cl;
 
 	/* which sub-data is manipulated ? */
+  //printf("TRSTI: i %u - k %u\n",i,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, i, k);
 
@@ -519,6 +606,7 @@ static int create_task_22(starpu_data_handle_t dataA, unsigned k, unsigned i, un
 	task->cl = &ssssm_cl;
 
 	/* which sub-data is manipulated ? */
+  //printf("SSSSM: i %u - j %u - k %u\n",i,j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, i, k); /* produced by TAG21(k, i) */
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j); /* produced by TAG12(k, j) */
 	task->handles[2] = starpu_data_get_sub_data(dataA, 2, i, j); /* produced by TAG22(k-1, i, j) */
@@ -615,10 +703,10 @@ static void check_result(void)
       if (A[j+i*m] != A_saved[j+i*m]) {
         ctr2++;
         if (j+i*m - ctr3 != 1) {
-          printf("\n");
+          //printf("\n");
         }
         ctr3 = j+i*m;
-        printf("not matchting: A[%d][%d] = %u =/= %u A_saved[%d][%d]\n", i,j, A[j+i*m], A_saved[j+i*m], i,j);
+        //printf("not matchting: A[%d][%d] = %u =/= %u A_saved[%d][%d]\n", i,j, A[j+i*m], A_saved[j+i*m], i,j);
       }
     }
   }
@@ -631,8 +719,7 @@ static void init_matrix(void)
 	starpu_malloc((void **)&A, (size_t)l*m*sizeof(TYPE));
 	STARPU_ASSERT(A);
 
-	starpu_srand48((long int)time(NULL));
-	/* starpu_srand48(0); */
+  srand(time(NULL));
 
 	/* initialize matrix content */
 	unsigned long i,j;
@@ -640,11 +727,10 @@ static void init_matrix(void)
 	{
 		for (i = 0; i < m; i++)
 		{
-			A[i + j*m] = (TYPE)starpu_drand48();
-#ifdef COMPLEX_LU
-			/* also randomize the imaginary component for complex number cases */
-			A[i + j*m] += (TYPE)(I*starpu_drand48());
-#endif
+      if (i != j+1)
+			  A[i+j*m] = (i-m+l+j-17) % prime;
+      else
+        A[i+j*m] = 0;
 		}
 	}
 }
@@ -659,6 +745,9 @@ static void save_matrix(void)
 
 int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned nblocks)
 {
+  unsigned boundary   = (l>m) ? m : l;
+  neg_inv_piv         = (unsigned *)malloc(boundary * sizeof(unsigned));
+  int number_threads  = starpu_worker_get_count();
   struct timeval start, stop;
   clock_t cStart, cStop;
   printf("Cache-oblivious Gaussian Elimination\n");
@@ -704,11 +793,13 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned nblocks)
   // get digits before decimal point of cputime (the longest number) and setw
   // with it: digits + 1 (point) + 4 (precision) 
   int digits = sprintf(buffer,"%.0f",cputime);
+  int tile_size = (int) (l/nblocks);
+  
   double ratio = cputime/realtime;
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("Method:           StarPU\n");
-  printf("#Threads:         %d\n", threadNumber);
-  printf("Chunk size:       %d\n", tile_size);
+  printf("#Threads:         %d\n", number_threads);
+  printf("Tile size:        %d\n", tile_size);
   printf("Real time:        %.4f sec\n", realtime);
   printf("CPU time:         %.4f sec\n", cputime);
   if (cputime > epsilon)
@@ -727,7 +818,9 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned nblocks)
 int main(int argc, char *argv[]) {
 	int ret;
 
-	parse_args(argc, argv);
+	int done = parse_args(argc, argv);
+  if (done)
+    return 0;
 
 #ifdef STARPU_QUICK_CHECK
 	size /= 4;
@@ -747,7 +840,8 @@ int main(int argc, char *argv[]) {
 	if (check)
 		save_matrix();
 
-	display_matrix(A, l, m, "A");
+	if (check)
+    display_matrix(A, l, m, m, "A");
 
 	if (bound)
 		starpu_bound_start(bounddeps, boundprio);
@@ -793,90 +887,22 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (check)
-	{
-		FPRINTF(stderr, "Checking result\n");
-		if (pivot) {
-			pivot_saved_matrix(ipiv);
-			free(ipiv);
-		}
-
-		check_result();
-	}
-
-	starpu_free(A);
-
 	FPRINTF(stderr, "Shutting down\n");
 	starpu_cublas_shutdown();
 
 	starpu_shutdown();
 
+	if (check)
+	{
+		FPRINTF(stderr, "Checking result\n");
+
+		check_result();
+	}
+
+	free(A);
+
 	if (ret == -ENODEV) return 77; else return 0;
   // compute FLOPS:
   // assume addition and multiplication in the mult kernel are 2 operations
   // done A.nRows() * B.nRows() * B.nCols()
-}
-
-void print_help(int exval) {
-  printf("DESCRIPTION\n");
-  printf("       Computes the Gaussian Elimination of a matrix A with\n");
-  printf("       unsigned integer entries.\n");
-  printf("       It uses Open MP.\n");
-
-  printf("OPTIONS\n");
-  printf("       -b SIZE   block- resp. chunksize\n");
-  printf("                 default: L1 cache size\n");
-  printf("       -c        cache-oblivious Gaussian Elimination\n");
-  printf("       -h        print help\n");
-  printf("       -l ROWSA  row size of matrix A\n");
-  printf("                 default: 2000\n");
-  printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
-  printf("                 default: 2000\n");
-  printf("       -t THRDS  number of threads\n");
-  printf("                 default: 1\n");
-
-  exit(exval);
-}
-
-
-int main(int argc, char *argv[]) {
-  int opt;
-  // default values
-  int t=1, bs=0, c=1;
-  // biggest prime < 2^16
-
-  /* 
-  // no arguments given
-  */
-  if(argc == 1) {
-    //fprintf(stderr, "This program needs arguments....\n\n");
-    //print_help(1);
-  }
-
-  while((opt = getopt(argc, argv, "hl:m:t:b:c")) != -1) {
-    switch(opt) {
-      case 'h':
-        print_help(0);
-        break;
-      case 'l': 
-        l = atoi(strdup(optarg));
-        break;
-      case 'm': 
-        m = atoi(strdup(optarg));
-        break;
-      case 't': 
-        t = atoi(strdup(optarg));
-        break;
-      case 'b': 
-        bs = atoi(strdup(optarg));
-        break;
-      case 'c': 
-        c = 1;
-        break;
-    }
-  }
-  if (c)
-    elim_co(l,m,t,bs);
-
-  return 0;
 }
