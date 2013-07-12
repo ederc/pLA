@@ -72,11 +72,11 @@ endif
 
 if ENABLE_STARPU
 mult_starpu_CFLAGS= $(AM_CFLAGS)
-mult_starpu_LDADD= -lstarpu
+mult_starpu_LDADD= -lstarpu-1.1
 mult_starpu_SOURCES= 	\
 	block-mat-mult-starpu.c
 elim_starpu_CFLAGS= $(AM_CFLAGS)
-elim_starpu_LDADD= -lstarpu
+elim_starpu_LDADD= -lstarpu-1.1
 elim_starpu_SOURCES= 	\
 	block-mat-elim-starpu.c
 endif
@@ -93,4 +93,5 @@ DISTCLEANFILES=	\
 	elim-tbb			\
 	elim-omp			\
 	elim-kaapi		\
-	elim-pthrd
+	elim-pthrd		\
+	elim-starpu

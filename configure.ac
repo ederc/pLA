@@ -264,10 +264,6 @@ enable_starpu=0
 
 AM_CONDITIONAL(ENABLE_STARPU,test "$enable_starpu" -eq 1)
 
-# TODO -- needs test for starpu! -- TODO
-enable_starpu=0
-AM_CONDITIONAL(ENABLE_STARPU,test "$enable_starpu" -eq 1)
-
 dnl Do not silence irrelevant compiler warnings by default, since enabling this
 dnl option incurs a performance penalty.
 AC_ARG_ENABLE([cc-silence],
