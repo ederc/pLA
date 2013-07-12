@@ -14,11 +14,22 @@ and seq
 
 elim 8192 x 8192 co
 -------------------
-tbb:    192 for 16 cores
+tbb:    64  for 64 cores
+        64  for 32 cores
+        64  for 16 cores
+        192 for  8 cores
+        128 for  4 cores
+        256 for  2 cores
 omp:    256 for 64 cores
 kaapi:  192 for 32 cores
 pthrd:  192 for 64 cores 
+starpu: 64  for 32 cores
+        64  for 16 cores
+        160 for  8 cores
+        128 for  4 cores
+        96  for  2 cores
 seq:    256
+
 
 Taking 256 one should get over the L1 Cache Size, still the 256 holds for omp
 and seq
