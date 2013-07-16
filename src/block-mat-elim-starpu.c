@@ -32,7 +32,7 @@ static unsigned tile_size = 128;
 static unsigned check     = 0;
 static unsigned pivot     = 0;
 static unsigned no_stride = 0;
-static unsigned profile   = 0;
+static unsigned profile   = 1;
 static unsigned bound     = 0;
 static unsigned bounddeps = 0;
 static unsigned boundprio = 0;
@@ -215,13 +215,17 @@ static void getri(void *descr[], int type) {
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     printf("getri inv  = %u || %p \n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
 #endif
+      printf("hallo\n");
+      printf("i+1 = %u -- x_dim = %u\n",i+1,x_dim);
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]);
+      printf("hallo2\n");
 #if MODULAR
       mult  = mult % prime;
 #endif
       sub_a[i+j*ld_a] = mult;
+      printf("hallo3\n");
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
 #if MODULAR
@@ -272,6 +276,7 @@ static void gessm(void *descr[], int type) {
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
   unsigned int mult     = 0;
+  unsigned int offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
  
 #if DEBUG00
   printf("\n --- GESSM ---\n");
@@ -279,6 +284,9 @@ static void gessm(void *descr[], int type) {
 #endif
 #if DEBUG0
   printf("ld_a  = %u\n", ld_a);
+  printf("offset_b %u -- %u\n",offset_b, (offset_b / sizeof(TYPE)) %  ld_a);
+  offset_b  = (offset_b / sizeof(TYPE)) %  ld_a;
+  printf("correct offset %p\n", &sub_a[offset_b]);
 #endif
   for (i = 0; i < x_dim_a - 1; ++i) {  
     for (j = i+1; j < y_dim_a ; ++j) {  
@@ -287,6 +295,7 @@ static void gessm(void *descr[], int type) {
 #endif
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
+          printf("sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
 #if DEBUG0
       printf("mult      = %u | %p\n", mult, sub_a[i+j*ld_a]);
       printf("i %u -- j %u -- k %u\n",i,j, k);
@@ -347,11 +356,12 @@ static void trsti(void *descr[], int type) {
   
 #if DEBUG00
   printf("\n --- TRSTI ---\n");
-  printf("%p -- %p\n", &sub_b[0], &sub_b[1]);
+  printf("a %p -- %p\n", &sub_a[0], &sub_a[1]);
+  printf("b %p -- %p\n", &sub_b[0], &sub_b[1]);
 #endif
   printf("offset_a %u -- %u\n",offset_a, (offset_a / sizeof(TYPE)) %  ld_a);
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
-#if DEBUG
+#if DEBUG0
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
   printf("ld_a  = %u\n", ld_a);
@@ -438,9 +448,11 @@ static void ssssm(void *descr[], int type) {
 
 #if DEBUG00
   printf("\n --- SSSSM ---\n");
-  printf("%p -- %p\n", &sub_c[0], &sub_c[1]);
+  printf("a %p -- %p\n", &sub_a[0], &sub_a[1]);
+  printf("b %p -- %p\n", &sub_b[0], &sub_b[1]);
+  printf("c %p -- %p\n", &sub_c[0], &sub_c[1]);
 #endif
-#if DEBUG
+#if DEBUG0
   printf("x_dim_a = %u\n", x_dim_a);
   printf("y_dim_a = %u\n", y_dim_a);
   printf("ld_a  = %u\n", ld_a);
@@ -547,7 +559,9 @@ static int create_task_12(starpu_data_handle_t dataA, unsigned k, unsigned j)
 	/* which sub-data is manipulated ? */
   //printf("GESSM: j %u - k %u\n",j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
+  printf("d1\n");
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j);
+  printf("d2\n");
 
 	if (!no_prio && (j == k+1))
 	{
@@ -577,7 +591,7 @@ static int create_task_21(starpu_data_handle_t dataA, unsigned k, unsigned i)
 	task->cl = &trsti_cl;
 
 	/* which sub-data is manipulated ? */
-  printf("TRSTI: i %u - k %u\n",i,k);
+  printf("TRSTI: i %u ----- k %u\n",i,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, i, k);
 
@@ -662,17 +676,17 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary
 			STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
 		}
 
-		for (i = k+1; i<mblocks; i++) {
-      printf("GESSM k %u -- i %u\n",k,i);
-			ret = create_task_12(dataA, k, i);
-			if (ret == -ENODEV) return ret;
-    }
-
 		for (i = k+1; i<lblocks; i++) {
       printf("TRSTI k %u -- i %u\n",k,i);
 			ret = create_task_21(dataA, k, i);
 			if (ret == -ENODEV) return ret;
 		}
+
+		for (i = k+1; i<mblocks; i++) {
+      printf("GESSM k %u -- i %u\n",k,i);
+			ret = create_task_12(dataA, k, i);
+			if (ret == -ENODEV) return ret;
+    }
 
 		for (i = k+1; i<lblocks; i++) {
 			for (j = k+1; j<mblocks; j++) {
@@ -689,7 +703,7 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary
 	STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
 
 	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(lblocks-1));
+	starpu_tag_wait(TAG11(boundary-1));
 
 	return 0;
 }
@@ -729,13 +743,13 @@ static void init_matrix(void)
 	{
 		for (i = 0; i < m; i++)
 		{
-      /*
       A[i+j*m]  = rand() % prime;
-      */
+      /*
       if (i != j+1)
 			  A[i+j*m] = (i-m+l+j-17) % prime;
       else
         A[i+j*m] = 0;
+      */
 		}
 	}
 }
@@ -760,35 +774,36 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned mv)
     mblocks++;
   neg_inv_piv         = (unsigned *)malloc(boundary * sizeof(unsigned));
   // adjust boundary for working with blocks/tiles
-  boundary   = (lblocks>mblocks) ? mblocks : lblocks;
   printf("neg inv piv %p -- %p\n",&neg_inv_piv, &neg_inv_piv[0]);
   int number_threads  = starpu_worker_get_count();
   struct timeval start, stop;
   clock_t cStart, cStop;
   printf("Cache-oblivious Gaussian Elimination\n");
  
-  printf("tile_size %u\n",tile_size);
-  printf("lblocks   %u\n",lblocks);
-  printf("mblocks   %u\n",mblocks);
 	starpu_data_handle_t dataA;
 
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
-	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, m, l, m, sizeof(TYPE));
+	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, m, m, l, sizeof(TYPE));
 
+  boundary   = (lblocks>mblocks) ? mblocks : lblocks;
+  printf("tile_size %u\n",tile_size);
+  printf("lblocks   %u\n",lblocks);
+  printf("mblocks   %u\n",mblocks);
+  printf("boundary %u\n",boundary);
 	/* We already enforce deps by hand */
 	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
 	struct starpu_data_filter f =
 	{
 		.filter_func = starpu_matrix_filter_vertical_block,
-		.nchildren = mblocks
+		.nchildren = lblocks
 	};
 
 	struct starpu_data_filter f2 =
 	{
 		.filter_func = starpu_matrix_filter_block,
-		.nchildren = lblocks
+		.nchildren = mblocks
 	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
