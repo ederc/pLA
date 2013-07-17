@@ -13,9 +13,9 @@
 #include "include/pla-config.h"
 #include "mat-elim-tools.h"
 
-#define DEBUG00 1
-#define DEBUG0 1
-#define DEBUG 0
+#define DEBUG00 0
+#define DEBUG0  0
+#define DEBUG   0
 #define MODULAR 1
 // cache-oblivious implementation
 
@@ -201,7 +201,6 @@ static void getri(void *descr[], int type) {
   printf("y_dim = %u\n", y_dim);
   printf("ld_a  = %u\n", ld_a);
 #endif
-  printf("offset_a %u -- %u\n",offset_a, (offset_a / sizeof(TYPE)) %  ld_a);
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
 #if DEBUG00
   printf("x_dim = %u\n", x_dim);
@@ -215,17 +214,13 @@ static void getri(void *descr[], int type) {
     printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
     printf("getri inv  = %u || %p \n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
 #endif
-      printf("hallo\n");
-      printf("i+1 = %u -- x_dim = %u\n",i+1,x_dim);
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]);
-      printf("hallo2\n");
 #if MODULAR
       mult  = mult % prime;
 #endif
       sub_a[i+j*ld_a] = mult;
-      printf("hallo3\n");
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
 #if MODULAR
@@ -295,7 +290,6 @@ static void gessm(void *descr[], int type) {
 #endif
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
-          printf("sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
 #if DEBUG0
       printf("mult      = %u | %p\n", mult, sub_a[i+j*ld_a]);
       printf("i %u -- j %u -- k %u\n",i,j, k);
@@ -359,7 +353,6 @@ static void trsti(void *descr[], int type) {
   printf("a %p -- %p\n", &sub_a[0], &sub_a[1]);
   printf("b %p -- %p\n", &sub_b[0], &sub_b[1]);
 #endif
-  printf("offset_a %u -- %u\n",offset_a, (offset_a / sizeof(TYPE)) %  ld_a);
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
 #if DEBUG0
   printf("x_dim_a = %u\n", x_dim_a);
@@ -373,9 +366,6 @@ static void trsti(void *descr[], int type) {
     printf("inv  = %u | %p\n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
 #endif
     for (j = 0; j < y_dim_b; ++j) {
-      printf("i %u -- j %u\n",i,j);
-  printf("neg inv piv %p - %p\n",&neg_inv_piv, &neg_inv_piv[0]);
-  printf("sub_b = %u\n",sub_b[i+j*ld_a]);
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]);
 #if MODULAR
@@ -523,7 +513,7 @@ static struct starpu_task *create_task(starpu_tag_t id)
 
 static struct starpu_task *create_task_11(starpu_data_handle_t dataA, unsigned k)
 {
-/*	printf("task 11 k = %d TAG = %llx\n", k, (TAG11(k))); */
+	// printf("task 11 k = %d TAG = %llx\n", k, (TAG11(k))); 
 
 	struct starpu_task *task = create_task(TAG11(k));
 
@@ -550,7 +540,7 @@ static int create_task_12(starpu_data_handle_t dataA, unsigned k, unsigned j)
 {
 	int ret;
 
-/*	printf("task 12 k,i = %d,%d TAG = %llx\n", k,i, TAG12(k,i)); */
+	// printf("task 12 k,j = %d,%d TAG = %llx\n", k,j, TAG12(k,j)); 
 
 	struct starpu_task *task = create_task(TAG12(k, j));
 
@@ -559,9 +549,7 @@ static int create_task_12(starpu_data_handle_t dataA, unsigned k, unsigned j)
 	/* which sub-data is manipulated ? */
   //printf("GESSM: j %u - k %u\n",j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
-  printf("d1\n");
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j);
-  printf("d2\n");
 
 	if (!no_prio && (j == k+1))
 	{
@@ -588,10 +576,11 @@ static int create_task_21(starpu_data_handle_t dataA, unsigned k, unsigned i)
 	int ret;
 	struct starpu_task *task = create_task(TAG21(k, i));
 
+	// printf("task 21 k,i = %d,%d TAG = %llx\n", k,i, TAG21(k,i)); 
+
 	task->cl = &trsti_cl;
 
 	/* which sub-data is manipulated ? */
-  printf("TRSTI: i %u ----- k %u\n",i,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, i, k);
 
@@ -677,22 +666,19 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary
 		}
 
 		for (i = k+1; i<lblocks; i++) {
-      printf("TRSTI k %u -- i %u\n",k,i);
 			ret = create_task_21(dataA, k, i);
 			if (ret == -ENODEV) return ret;
 		}
 
 		for (i = k+1; i<mblocks; i++) {
-      printf("GESSM k %u -- i %u\n",k,i);
 			ret = create_task_12(dataA, k, i);
 			if (ret == -ENODEV) return ret;
     }
 
 		for (i = k+1; i<lblocks; i++) {
 			for (j = k+1; j<mblocks; j++) {
-          printf("SSSSM i %u -- j %u\n",i,j);
-			     ret = create_task_22(dataA, k, i, j);
-			     if (ret == -ENODEV) return ret;
+        ret = create_task_22(dataA, k, i, j);
+        if (ret == -ENODEV) return ret;
 			}
 		}
 	}
@@ -703,8 +689,24 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary
 	STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_submit");
 
 	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(boundary-1));
-
+  // if l == m then TAG11 is the last computation
+  starpu_task_wait_for_all();
+  /*
+  if (lblocks == mblocks) {
+    printf("WAIT FOR TASK 11 %u\n",boundary-1);
+	  starpu_tag_wait(TAG11(boundary-1));
+  } else {
+    // if l > m then TAG21 is the last computation
+    if (lblocks > mblocks) {
+      printf("WAIT FOR TASK 21 %u - %u\n",boundary-1, lblocks-1);
+      starpu_tag_wait(TAG21(boundary-1,lblocks-1));
+    // if l < m then TAG12 is the last computation
+    } else {
+      printf("WAIT FOR TASK 12 %u - %u\n",boundary-1, mblocks-1);
+      starpu_tag_wait(TAG12(boundary-1,mblocks-1));
+    }
+  }
+  */
 	return 0;
 }
 
@@ -765,7 +767,7 @@ static void save_matrix(void)
 int lu_decomposition(TYPE *matA, unsigned l, unsigned mv)
 {
   unsigned boundary   = (l>m) ? m : l;
-  printf("boundary %u\n",boundary);
+  //printf("boundary %u\n",boundary);
   lblocks             = l / tile_size;
   if (l % tile_size > 0)
     lblocks++;
@@ -774,7 +776,6 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned mv)
     mblocks++;
   neg_inv_piv         = (unsigned *)malloc(boundary * sizeof(unsigned));
   // adjust boundary for working with blocks/tiles
-  printf("neg inv piv %p -- %p\n",&neg_inv_piv, &neg_inv_piv[0]);
   int number_threads  = starpu_worker_get_count();
   struct timeval start, stop;
   clock_t cStart, cStop;
@@ -787,10 +788,12 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned mv)
 	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, m, m, l, sizeof(TYPE));
 
   boundary   = (lblocks>mblocks) ? mblocks : lblocks;
+#if DEBUG00
   printf("tile_size %u\n",tile_size);
   printf("lblocks   %u\n",lblocks);
   printf("mblocks   %u\n",mblocks);
   printf("boundary %u\n",boundary);
+#endif
 	/* We already enforce deps by hand */
 	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
