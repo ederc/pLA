@@ -257,7 +257,7 @@ AM_CONDITIONAL(ENABLE_KAAPIC,test "$enable_kaapic" -eq 1)
 
 dnl Search for STARPU
 enable_starpu=0
- AC_CHECK_LIB([starpu-1.1], [main], [
+ AC_CHECK_LIB([starpu-1.1], [starpu_init], [
     AC_DEFINE([HAVE_STARPU],[],"STARPU available.")
     enable_starpu=1
     ], [echo "libstarpu not found."])

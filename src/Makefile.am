@@ -5,7 +5,7 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-INCLUDES=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
+AM_CPPFLAGS=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
 
 bin_PROGRAMS = 	\
 	mult-seq 			\

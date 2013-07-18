@@ -3,7 +3,7 @@
 # This file is part of pLA, licensed under the GNU General Public
 # License version 3. See COPYING for more information.
 
-INCLUDES=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
+AM_CPPFLAGS=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
 
 pkgincludesubdir = $(includedir)/pla
 pkgconfigdir = $(libdir)/pkgconfig
@@ -30,14 +30,11 @@ distclean-local:
 
 DISTCLEANFILES= 												\
 	_configs.sed													\
-	config.sub														\
-	config.guess													\
 	configure.in													\
 	configure															\
 	ltmain.sh															\
 	Makefile.in														\
 	pla-config pla-config~								\
-	include/pla-config.h*									\
 	include/stamp-h1a         						\
 	obj/*																	\
 	*~
