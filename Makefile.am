@@ -31,7 +31,6 @@ distclean-local:
 DISTCLEANFILES= 												\
 	_configs.sed													\
 	configure.in													\
-	configure															\
 	ltmain.sh															\
 	Makefile.in														\
 	pla-config pla-config~								\
