@@ -764,7 +764,7 @@ static void save_matrix(void)
 	memcpy(A_saved, A, (size_t)l*m*sizeof(TYPE));
 }
 
-int lu_decomposition(TYPE *matA, unsigned l, unsigned m)
+int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
 {
   unsigned boundary   = (l>m) ? m : l;
   //printf("boundary %u\n",boundary);
