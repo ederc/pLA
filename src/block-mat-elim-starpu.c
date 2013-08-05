@@ -10,7 +10,7 @@
 #include <starpu.h>
 #include <starpu_data.h>
 
-#include "include/pla-config.h"
+#include "pla-config.h"
 #include "mat-elim-tools.h"
 
 #define DEBUG00 0
@@ -764,7 +764,7 @@ static void save_matrix(void)
 	memcpy(A_saved, A, (size_t)l*m*sizeof(TYPE));
 }
 
-int lu_decomposition(TYPE *matA, unsigned l, unsigned mv)
+int lu_decomposition(TYPE *matA, unsigned l, unsigned m)
 {
   unsigned boundary   = (l>m) ? m : l;
   //printf("boundary %u\n",boundary);
