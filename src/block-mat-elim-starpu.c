@@ -885,7 +885,7 @@ int main(int argc, char *argv[]) {
 		starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
 
 
-	ret = lu_decomposition(A, l, m);
+	ret = lu_decomposition(A, l, m, tile_size);
 
 	if (profile)
 	{
