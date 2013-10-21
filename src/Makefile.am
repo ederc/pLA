@@ -72,11 +72,11 @@ endif
 
 if ENABLE_STARPU
 mult_starpu_CFLAGS= $(AM_CFLAGS)
-mult_starpu_LDADD= -lstarpu-1.1
+mult_starpu_LDADD= -lstarpu-1.2
 mult_starpu_SOURCES= 	\
 	block-mat-mult-starpu.c
 elim_starpu_CFLAGS= $(AM_CFLAGS)
-elim_starpu_LDADD= -lstarpu-1.1
+elim_starpu_LDADD= -lstarpu-1.2
 elim_starpu_SOURCES= 	\
 	block-mat-elim-starpu.c
 endif

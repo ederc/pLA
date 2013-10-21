@@ -7,16 +7,24 @@
 #include <time.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <limits.h>
 #include <starpu.h>
 #include <starpu_data.h>
 
 #include "pla-config.h"
 #include "mat-elim-tools.h"
 
-#define DEBUG00 0
-#define DEBUG0  0
-#define DEBUG   0
-#define MODULAR 1
+// the algorithm might extend the matrix dimensions l resp. m in order to fit to
+// the tile size given. if ZEROFILL is defined then the corresponding border of
+// the matrix is filled with zeros.
+// right now we have no pivoting included thus we do not check for zeros. so we
+// fill with random entries
+#define ZEROFILL  0
+#define DEBUGDIM  0
+#define DEBUG00   0
+#define DEBUG0    0
+#define DEBUG     0
+#define MODULAR   1
 // cache-oblivious implementation
 
 typedef unsigned int TYPE;
@@ -193,6 +201,12 @@ static void getri(void *descr[], int type) {
   unsigned int offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
   unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned int mult     = 0;
+#if DEBUGDIM
+  printf("\n --- GETRI ---\n");
+  printf("x_dim = %u\n", x_dim);
+  printf("y_dim = %u\n", y_dim);
+  printf("ld_a  = %u\n", ld_a);
+#endif
  
 #if DEBUG00
   printf("\n --- GETRI ---\n");
@@ -270,8 +284,19 @@ static void gessm(void *descr[], int type) {
   unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
   unsigned int mult     = 0;
   unsigned int offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
+ 
+#if DEBUGDIM
+  printf("\n --- GESSM ---\n");
+  printf("x_dim_a = %u\n", x_dim_a);
+  printf("y_dim_a = %u\n", y_dim_a);
+  printf("ld_a    = %u\n\n", ld_a);
+  printf("x_dim_b = %u\n", x_dim_b);
+  printf("y_dim_b = %u\n", y_dim_b);
+  printf("ld_b    = %u\n", ld_b);
+#endif
  
 #if DEBUG00
   printf("\n --- GESSM ---\n");
@@ -294,9 +319,9 @@ static void gessm(void *descr[], int type) {
       printf("mult      = %u | %p\n", mult, sub_a[i+j*ld_a]);
       printf("i %u -- j %u -- k %u\n",i,j, k);
 #endif
-        sub_b[k+j*ld_a] +=  (sub_b[k+i*ld_a] * mult);
+        sub_b[k+j*ld_b] +=  (sub_b[k+i*ld_a] * mult);
 #if MODULAR
-        sub_b[k+j*ld_a] %=  prime;
+        sub_b[k+j*ld_b] %=  prime;
 #endif
 #if DEBUG0
           printf("sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
@@ -346,7 +371,19 @@ static void trsti(void *descr[], int type) {
   unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
   unsigned int mult     = 0;
+
+#if DEBUGDIM
+  printf("\n --- TRSTI ---\n");
+  printf("x_dim_a = %u\n", x_dim_a);
+  printf("y_dim_a = %u\n", y_dim_a);
+  printf("ld_a    = %u\n\n", ld_a);
+  printf("x_dim_b = %u\n", x_dim_b);
+  printf("y_dim_b = %u\n", y_dim_b);
+  printf("ld_b    = %u\n", ld_b);
+#endif
+ 
   
 #if DEBUG00
   printf("\n --- TRSTI ---\n");
@@ -367,7 +404,7 @@ static void trsti(void *descr[], int type) {
 #endif
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_a]);
+      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_b]);
 #if MODULAR
       mult  = mult % prime;
 #endif
@@ -375,14 +412,14 @@ static void trsti(void *descr[], int type) {
       printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
       printf("mult     = %u | %p\n", mult, &mult);
 #endif
-      sub_b[i+j*ld_a] = mult;
+      sub_b[i+j*ld_b] = mult;
 #if DEBUG00
       printf("<> sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
 #endif
       for (k = i+1; k < x_dim_b; ++k) {
-        sub_b[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
+        sub_b[k+j*ld_b] +=  (sub_a[k+i*ld_a] * mult);
 #if MODULAR
-        sub_b[k+j*ld_a] %=  prime;
+        sub_b[k+j*ld_b] %=  prime;
 #endif
       }
     }
@@ -428,13 +465,29 @@ static void ssssm(void *descr[], int type) {
   unsigned int *sub_b   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
   unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
   unsigned int *sub_c   = (unsigned int *)STARPU_MATRIX_GET_PTR(descr[2]);
   unsigned int x_dim_c  = STARPU_MATRIX_GET_NX(descr[2]);
   unsigned int y_dim_c  = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned int ld_c     = STARPU_MATRIX_GET_LD(descr[2]);
   unsigned int mult     = 0;
 
   assert(x_dim_b == x_dim_c);
   assert(y_dim_a == y_dim_c);
+
+#if DEBUGDIM
+  printf("\n --- SSSSM ---\n");
+  printf("x_dim_a = %u\n", x_dim_a);
+  printf("y_dim_a = %u\n", y_dim_a);
+  printf("ld_a    = %u\n\n", ld_a);
+  printf("x_dim_b = %u\n", x_dim_b);
+  printf("y_dim_b = %u\n", y_dim_b);
+  printf("ld_b    = %u\n\n", ld_b);
+  printf("x_dim_c = %u\n", x_dim_c);
+  printf("y_dim_c = %u\n", y_dim_c);
+  printf("ld_c    = %u\n", ld_c);
+#endif
+ 
 
 #if DEBUG00
   printf("\n --- SSSSM ---\n");
@@ -457,9 +510,9 @@ static void ssssm(void *descr[], int type) {
       // multiply by corresponding coeff
       for (k = 0; k < x_dim_b; ++k) {
 #if DEBUG
-        printf("sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_a]);
+        printf("sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_c]);
         printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
-        printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_a]);
+        printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_b]);
 #endif
         /*
         if (k == j) {
@@ -469,9 +522,9 @@ static void ssssm(void *descr[], int type) {
         }
         printf("%u += %u * %u\n",sub_c[k+j*ld_a],sub_a[i+j*ld_a],sub_b[k+i*ld_a]);
         */
-        sub_c[k+j*ld_a] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_a]) ;
+        sub_c[k+j*ld_c] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_b]) ;
 #if MODULAR
-        sub_c[k+j*ld_a] %=  prime;
+        sub_c[k+j*ld_c] %=  prime;
 #endif
       }
     }
@@ -724,34 +777,50 @@ static void check_result(void)
           //printf("\n");
         }
         ctr3 = j+i*m;
-        //printf("not matchting: A[%d][%d] = %u =/= %u A_saved[%d][%d]\n", i,j, A[j+i*m], A_saved[j+i*m], i,j);
+        printf("not matchting: A[%d][%d] = %u =/= %u A_saved[%d][%d]\n", i,j, A[j+i*m], A_saved[j+i*m], i,j);
       }
     }
   }
   printf("%u / %u elements NOT matching\n", ctr2, ctr);
 }
 
-static void init_matrix(void)
+static void init_matrix(unsigned l_init, unsigned m_init)
 {
 	/* allocate matrix */
 	starpu_malloc((void **)&A, (size_t)l*m*sizeof(TYPE));
 	STARPU_ASSERT(A);
 
+  assert(l_init <= l);
+  assert(m_init <= m);
+
   srand(time(NULL));
 
 	/* initialize matrix content */
 	unsigned long i,j;
-	for (j = 0; j < l; j++)
+	for (j = 0; j < l_init; j++)
+  {
+		for (i = 0; i < m_init; i++)
+		{
+      A[i+j*m]  = rand() % prime;
+		}
+		for (i = m_init; i < m; i++)
+		{
+#if ZEROFILL
+      A[i+j*m]  = 0;
+#else
+      A[i+j*m]  = rand() % prime;
+#endif
+		}
+	}
+	for (j = l_init; j < l; j++)
 	{
 		for (i = 0; i < m; i++)
 		{
+#if ZEROFILL
+      A[i+j*m]  = 0;
+#else
       A[i+j*m]  = rand() % prime;
-      /*
-      if (i != j+1)
-			  A[i+j*m] = (i-m+l+j-17) % prime;
-      else
-        A[i+j*m] = 0;
-      */
+#endif
 		}
 	}
 }
@@ -767,13 +836,6 @@ static void save_matrix(void)
 int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
 {
   unsigned boundary   = (l>m) ? m : l;
-  //printf("boundary %u\n",boundary);
-  lblocks             = l / tile_size;
-  if (l % tile_size > 0)
-    lblocks++;
-  mblocks             = m / tile_size;
-  if (m % tile_size > 0)
-    mblocks++;
   neg_inv_piv         = (unsigned *)malloc(boundary * sizeof(unsigned));
   // adjust boundary for working with blocks/tiles
   int number_threads  = starpu_worker_get_count();
@@ -785,11 +847,13 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
 
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
-	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, m, m, l, sizeof(TYPE));
+	starpu_matrix_data_register(&dataA, STARPU_MAIN_RAM, (uintptr_t)matA, m, m, l, sizeof(TYPE));
 
   boundary   = (lblocks>mblocks) ? mblocks : lblocks;
-#if DEBUG00
+#if 1
   printf("tile_size %u\n",tile_size);
+  printf("l   %u\n",l);
+  printf("m   %u\n",m);
   printf("lblocks   %u\n",lblocks);
   printf("mblocks   %u\n",mblocks);
   printf("boundary %u\n",boundary);
@@ -841,11 +905,11 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
     printf("CPU/real time:    %.4f\n", ratio);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
-  printf("---------------------------------------------------\n");
+  printf("-+-------------------------------------------------\n");
 
 	/* gather all the data */
-	starpu_data_unpartition(dataA, 0);
-	starpu_data_unregister(dataA);
+	//starpu_data_unpartition(dataA, STARPU_MAIN_RAM);
+	//starpu_data_unregister(dataA);
 
 	return ret;
 }
@@ -868,8 +932,25 @@ int main(int argc, char *argv[]) {
 	STARPU_CHECK_RETURN_VALUE(ret, "starpu_init");
 
 	starpu_cublas_init();
+  /***********************************
+   * calculate correct dimensions for
+   * tiling
+   */
+  //printf("boundary %u\n",boundary);
+  unsigned l_init     = l;
+  unsigned m_init     = m;
+  lblocks             = l / tile_size;
+  if (l % tile_size > 0) {
+    lblocks++;
+    l +=  tile_size - (l % tile_size);
+  }
+  mblocks             = m / tile_size;
+  if (m % tile_size > 0) {
+    mblocks++;
+    m +=  tile_size - (m % tile_size);
+  }
 
-	init_matrix();
+	init_matrix(l_init, m_init);
 
 	unsigned *ipiv = NULL;
 	if (check)
@@ -922,11 +1003,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	FPRINTF(stderr, "Shutting down\n");
-	starpu_cublas_shutdown();
-
-	starpu_shutdown();
-
 	if (check)
 	{
 		FPRINTF(stderr, "Checking result\n");
@@ -934,7 +1010,12 @@ int main(int argc, char *argv[]) {
 		check_result();
 	}
 
-	free(A);
+  starpu_free(A);
+
+	FPRINTF(stderr, "Shutting down\n");
+	starpu_cublas_shutdown();
+
+	starpu_shutdown();
 
 	if (ret == -ENODEV) return 77; else return 0;
   // compute FLOPS:
