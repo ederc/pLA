@@ -1,0 +1,22 @@
+Notes on the tiled Gaussian Elimination with StarPU
+====================================================
+
+1.  In order to realize fitting tile size (i.e. square ones) we have to adjust
+    the matrix size with respect to the user-given tile size. For any matrix
+    of dimensions l x m we have to add tile_size - (tile_size % l) rows and
+    tile_size - (tile_size % m) columns.
+    Note that since we have not implemented pivoting as of now we have to fill
+    these additional entries with random numbers and not with zeros!
+
+2.  Working over fields with prime characteristic <2^16 and matrix entries of
+    size 2^64 we can delay the modulus operation: Assume a,b,c < 2^16 and an
+    update of a by b*c during the Gaussian Elimination: a <- a + b*c. Since
+    b*c < 2^32 we can do up to 2^31 of these updates:
+    a + 2^31 * b*c < 2^16 + 2^31*2^32 < 2^64.
+
+3.  Due to the tiled structure of the algorithm we can delay the modulus
+    operation for the SSSSM step, but not for GETRI, GESSM and TRSTI: GETRI
+    computes the final values for elements in block A: above the diagonal we get
+    the final elements in the Gaussian Elimination and those below are the
+    multipliers in the next steps. GESSM and TRSTI also compute final
+    values in block B, resp.
