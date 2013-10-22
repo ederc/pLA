@@ -7,6 +7,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <assert.h>
+#include <limits.h>
 #include <starpu.h>
 #include <starpu_data.h>
 
