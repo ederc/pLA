@@ -19,12 +19,13 @@
 // the matrix is filled with zeros.
 // right now we have no pivoting included thus we do not check for zeros. so we
 // fill with random entries
-#define ZEROFILL  0
-#define DEBUGDIM  0
-#define DEBUG00   0
-#define DEBUG0    0
-#define DEBUG     0
-#define MODULAR   1
+#define ZEROFILL            0
+#define DEBUGDIM            0
+#define DEBUG00             0
+#define DEBUG0              0
+#define DEBUG               0
+#define MODULAR             1
+#define IMMEDIATE_MODULAR   1
 // cache-oblivious implementation
 
 typedef unsigned int TYPE;
@@ -32,6 +33,8 @@ typedef unsigned int TYPE;
 TYPE *neg_inv_piv;
 TYPE *A, *A_saved;
 static unsigned prime     = 32003;
+static unsigned l_init    = 4096;
+static unsigned m_init    = 4096;
 static unsigned l         = 4096;
 static unsigned m         = 4096;
 static unsigned lblocks   = 0;
@@ -99,13 +102,13 @@ void elim(unsigned int *cc, unsigned int l, unsigned int m) {
   double cputime  = (double)((cStop - cStart)) / CLOCKS_PER_SEC;
   
   double ratio = cputime/realtime;
-  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("Method:           Naive\n");
   printf("Real time:        %.4f sec\n", realtime);
   printf("CPU time:         %.4f sec\n", cputime);
   if (cputime > epsilon)
     printf("CPU/real time:    %.4f\n", ratio);
-  printf("---------------------------------------------------\n");
+  printf("-------------------------------------------------------\n");
 
 }
 
@@ -138,7 +141,7 @@ void print_help(int exval) {
   printf("       It uses StarPU.\n");
 
   printf("OPTIONS\n");
-  printf("       -b SIZE   block- resp. chunksize\n");
+  printf("       -b SIZE   block- resp. tile size\n");
   printf("                 default: 128\n");
   printf("       -c        check result against naive sequential GEP\n");
   printf("       -h        print help\n");
@@ -237,7 +240,7 @@ static void getri(void *descr[], int type) {
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
-#if MODULAR
+#if IMMEDIATE_MODULAR
         sub_a[k+j*ld_a] %=  prime;
 #endif
       }
@@ -320,7 +323,7 @@ static void gessm(void *descr[], int type) {
       printf("i %u -- j %u -- k %u\n",i,j, k);
 #endif
         sub_b[k+j*ld_b] +=  (sub_b[k+i*ld_a] * mult);
-#if MODULAR
+#if IMMEDIATE_MODULAR
         sub_b[k+j*ld_b] %=  prime;
 #endif
 #if DEBUG0
@@ -418,7 +421,7 @@ static void trsti(void *descr[], int type) {
 #endif
       for (k = i+1; k < x_dim_b; ++k) {
         sub_b[k+j*ld_b] +=  (sub_a[k+i*ld_a] * mult);
-#if MODULAR
+#if IMMEDIATE_MODULAR
         sub_b[k+j*ld_b] %=  prime;
 #endif
       }
@@ -523,7 +526,7 @@ static void ssssm(void *descr[], int type) {
         printf("%u += %u * %u\n",sub_c[k+j*ld_a],sub_a[i+j*ld_a],sub_b[k+i*ld_a]);
         */
         sub_c[k+j*ld_c] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_b]) ;
-#if MODULAR
+#if IMMEDIATE_MODULAR
         sub_c[k+j*ld_c] %=  prime;
 #endif
       }
@@ -841,7 +844,6 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   int number_threads  = starpu_worker_get_count();
   struct timeval start, stop;
   clock_t cStart, cStop;
-  printf("Cache-oblivious Gaussian Elimination\n");
  
 	starpu_data_handle_t dataA;
 
@@ -850,14 +852,6 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
 	starpu_matrix_data_register(&dataA, STARPU_MAIN_RAM, (uintptr_t)matA, m, m, l, sizeof(TYPE));
 
   boundary   = (lblocks>mblocks) ? mblocks : lblocks;
-#if 1
-  printf("tile_size %u\n",tile_size);
-  printf("l   %u\n",l);
-  printf("m   %u\n",m);
-  printf("lblocks   %u\n",lblocks);
-  printf("mblocks   %u\n",mblocks);
-  printf("boundary %u\n",boundary);
-#endif
 	/* We already enforce deps by hand */
 	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
@@ -895,17 +889,27 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   int digits = sprintf(buffer,"%.0f",cputime);
   
   double ratio = cputime/realtime;
-  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Method:           StarPU\n");
-  printf("#Threads:         %d\n", number_threads);
+  printf("=======================================================\n");
+  printf("Method:           StarPU - tiled Gaussian Elimination\n");
+  printf("-------------------------------------------------------\n");
   printf("Tile size:        %d\n", tile_size);
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("Matrix sizes\n");
+  printf("> user input:     %d x %d\n", l_init, m_init);  
+  printf("> generated:      %d x %d\n", l, m);  
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("# row blocks:     %d\n",lblocks);
+  printf("# column blocks:  %d\n",mblocks);
+  printf("-------------------------------------------------------\n");
+  printf("#Threads:         %d\n", number_threads);
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("Real time:        %.4f sec\n", realtime);
   printf("CPU time:         %.4f sec\n", cputime);
   if (cputime > epsilon)
     printf("CPU/real time:    %.4f\n", ratio);
-  printf("- - - - - - - - - - - - - - - - - - - - - - - - - -\n");
+  printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
-  printf("-+-------------------------------------------------\n");
+  printf("=======================================================\n");
 
 	/* gather all the data */
 	//starpu_data_unpartition(dataA, STARPU_MAIN_RAM);
@@ -937,14 +941,16 @@ int main(int argc, char *argv[]) {
    * tiling
    */
   //printf("boundary %u\n",boundary);
-  unsigned l_init     = l;
-  unsigned m_init     = m;
-  lblocks             = l / tile_size;
+  l_init  = l;
+  m_init  = m;
+
+  lblocks = l / tile_size;
+  mblocks = m / tile_size;
+
   if (l % tile_size > 0) {
     lblocks++;
     l +=  tile_size - (l % tile_size);
   }
-  mblocks             = m / tile_size;
   if (m % tile_size > 0) {
     mblocks++;
     m +=  tile_size - (m % tile_size);
@@ -1005,14 +1011,16 @@ int main(int argc, char *argv[]) {
 
 	if (check)
 	{
-		FPRINTF(stderr, "Checking result\n");
+		FPRINTF(stderr,
+      "\n=======================================================\nChecking result\n");
 
 		check_result();
 	}
 
   starpu_free(A);
 
-	FPRINTF(stderr, "Shutting down\n");
+	FPRINTF(stderr,
+    "\n=======================================================\nShutting down\n");
 	starpu_cublas_shutdown();
 
 	starpu_shutdown();
