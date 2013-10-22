@@ -781,6 +781,15 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   printf("Method: StarPU - tiled Gaussian Elimination\n");
   printf("-------------------------------------------------------\n");
   printf("Field characteristic: %d\n", prime);
+#if MODULUS == 0
+  printf("modulus computations: no\n");
+#endif
+#if MODULUS == 1 && DELAYED_MODULUS == 0
+  printf("modulus computations: yes, direct\n");
+#endif
+#if MODULUS == 1 && DELAYED_MODULUS == 1
+  printf("modulus computations: yes, delayed\n");
+#endif
   printf("-------------------------------------------------------\n");
   printf("Tile size:            %d\n", tile_size);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
