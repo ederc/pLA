@@ -14,15 +14,23 @@
 #include "pla-config.h"
 #include "mat-elim-tools.h"
 
-// the algorithm might extend the matrix dimensions l resp. m in order to fit to
-// the tile size given. if ZEROFILL is defined then the corresponding border of
-// the matrix is filled with zeros.
-// right now we have no pivoting included thus we do not check for zeros. so we
-// fill with random entries
+/*
+ * The algorithm might extend the matrix dimensions l resp. m in order to fit to
+ * the tile size given. If ZEROFILL is defined then the corresponding border of
+ * the matrix is filled with zeros.
+ * Right now we have no pivoting included thus we do not check for zeros. so we
+ * fill with random entries
+ */
 #define ZEROFILL            0
 #define DEBUG               0
-#define MODULAR             1
-#define IMMEDIATE_MODULAR   1
+/*
+ * MODULUS and DELAYED_MODULUS need to be combined:
+ * 1. no modulus computation:       MODULUS 0, DELAYED_MODULUS 0/1
+ * 2. direct modulus computations:  MODULUS 1, DELAYED_MODULUS 0
+ * 3. delayed modulus computations: MODULUS 1, DELAYED_MODULUS 1
+ */
+#define MODULUS             1
+// !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
 #define DELAYED_MODULUS     1
 // cache-oblivious implementation
 
@@ -105,23 +113,21 @@ void elim(TYPE *cc, unsigned int l, unsigned int m) {
 
 static void display_matrix(TYPE *a, unsigned l, unsigned m, unsigned ld, char *str)
 {
-	FPRINTF(stdout, "***********\n");
-	FPRINTF(stdout, "Display matrix %s\n", str);
   if (l < 65 && m < 65)
   {
+    printf("***********\n");
+    printf("Display matrix %s\n", str);
     unsigned i,j;
     for (j = 0; j < l; j++)
     {
       for (i = 0; i < m; i++)
       {
-        FPRINTF(stdout, "%d|%p\t", a[i+j*ld],&a[i+j*ld]);
+        printf("%d|%p\t", a[i+j*ld],&a[i+j*ld]);
       }
-      FPRINTF(stdout, "\n");
+      printf("\n");
     }
-  } else {
-    FPRINTF(stdout, "Matrix dimensions are too big => No printing\n");
+	printf("***********\n");
   }
-	FPRINTF(stdout, "***********\n");
 }
 
 
@@ -204,12 +210,12 @@ static void getri(void *descr[], int type) {
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
 
   for (i = 0; i < y_dim; ++i) {  
-#if DELAYED_MODULUS
+#if MODULUS == 1 && DELAYED_MODULUS == 1
         sub_a[i+i*ld_a] %=  prime;
 #endif
     // compute inverse
     neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
-#if IMMEDIATE_MODULAR
+#if MODULUS == 1 && DELAYED_MODULUS == 1
     for (j = i+1; j < x_dim; ++j) {
         sub_a[j+i*ld_a] %=  prime;
     }
@@ -217,13 +223,13 @@ static void getri(void *descr[], int type) {
     for (j = i+1; j < x_dim; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]);
-#if MODULAR
+#if MODULUS == 1
       mult  = mult % prime;
 #endif
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
-#if IMMEDIATE_MODULAR
+#if MODULUS == 1
         sub_a[k+j*ld_a] %=  prime;
 #endif
       }
@@ -272,14 +278,16 @@ static void gessm(void *descr[], int type) {
   for (i = 0; i < x_dim_a - 1; ++i) {  
     // reduce entries in this line mod prime
     // no other task will work on them anymore
+#if MODULUS == 1 && DELAYED_MODULUS == 1
     for (k = 0; k < x_dim_b; ++k) {
         sub_b[k+i*ld_b] %=  prime;
     }
+#endif
     for (j = i+1; j < y_dim_a ; ++j) {  
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
         sub_b[k+j*ld_b] +=  (sub_b[k+i*ld_a] * mult);
-#if IMMEDIATE_MODULAR
+#if MODULUS == 1
         sub_b[k+j*ld_b] %=  prime;
 #endif
       }
@@ -331,13 +339,13 @@ static void trsti(void *descr[], int type) {
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_b]);
-#if MODULAR
+#if MODULUS == 1
       mult  = mult % prime;
 #endif
       sub_b[i+j*ld_b] = mult;
       for (k = i+1; k < x_dim_b; ++k) {
         sub_b[k+j*ld_b] +=  (sub_a[k+i*ld_a] * mult);
-#if IMMEDIATE_MODULAR
+#if MODULUS == 1
         sub_b[k+j*ld_b] %=  prime;
 #endif
       }
@@ -395,7 +403,13 @@ static void ssssm(void *descr[], int type) {
       // multiply by corresponding coeff
       for (k = 0; k < x_dim_b; ++k) {
         sub_c[k+j*ld_c] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_b]) ;
-#if 0
+
+/*
+ * This is the only place where we do not need to compute an immediate modulus
+ * If we do not compute it here, we need to add some modulus computations in
+ * GETRI, GESSM and TRSTI (macro DELAYED_MODULUS)
+ */
+#if MODULUS == 1 && DELAYED_MODULUS == 0
         sub_c[k+j*ld_c] %=  prime;
 #endif
       }
