@@ -20,9 +20,6 @@
 // right now we have no pivoting included thus we do not check for zeros. so we
 // fill with random entries
 #define ZEROFILL            0
-#define DEBUGDIM            0
-#define DEBUG01             0
-#define DEBUG0              0
 #define DEBUG               0
 #define MODULAR             1
 #define IMMEDIATE_MODULAR   1
@@ -33,7 +30,7 @@ typedef unsigned long TYPE;
 
 TYPE *neg_inv_piv;
 TYPE *A, *A_saved;
-static unsigned long prime       = 32003;
+static unsigned long prime  = 65521;
 static unsigned l_init      = 4096;
 static unsigned m_init      = 4096;
 static unsigned l           = 4096;
@@ -82,14 +79,7 @@ void elim(TYPE *cc, unsigned int l, unsigned int m) {
     for (j = i+1; j < l; ++j) {
       mult = cc[i+j*m] * inv;
       mult %= prime;
-#if DEBUG0
-      printf("i %u -- j %u\n",i,j);
-      printf("mult      = %u | %p\n", mult, &mult);
-#endif
       for (k = i+1; k < m; ++k) {
-#if DEBUG
-      printf("i %u -- j %u -- k %u\n",i,j, k);
-#endif
         cc[k+j*m]  += cc[k+i*m] * mult;
         cc[k+j*m]  %= prime;
       }
@@ -219,13 +209,6 @@ static void getri(void *descr[], int type) {
 #endif
     // compute inverse
     neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
-#if DEBUG01
-          printf("GETRI sub_a[%u][%u] = %u\n", i,i,sub_a[i+i*ld_a]);
-#endif
-#if DEBUG0
-    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-    printf("getri inv  = %u || %p \n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
-#endif
 #if IMMEDIATE_MODULAR
     for (j = i+1; j < x_dim; ++j) {
         sub_a[j+i*ld_a] %=  prime;
@@ -239,27 +222,13 @@ static void getri(void *descr[], int type) {
 #endif
       sub_a[i+j*ld_a] = mult;
       for (k = i+1; k < y_dim; ++k) {
-#if DEBUG01
-          printf("GETRI -- before sub_a[%u][%u] = %u\n", j,k,sub_a[k+j*ld_a]);
-          printf("GETRI -- before sub_a[%u][%u] = %u\n", i,k,sub_a[k+i*ld_a]);
-          printf("GETRI -- before mult = %u\n", mult);
-#endif
         sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
 #if IMMEDIATE_MODULAR
         sub_a[k+j*ld_a] %=  prime;
 #endif
-#if DEBUG01
-          printf("GETRI sub_a[%u][%u] = %u\n", j,k,sub_a[k+j*ld_a]);
-          printf("GETRI inv  = %u\n", neg_inv_piv[i+offset_a]);
-#endif
       }
     }
   }  
-#if DEBUG00
-  printf("\n --- GETRI DONE ---\n");
-  printf("TASKS READY     %d\n", starpu_task_nready());
-  printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
-#endif
 }
 
 static void getri_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -300,26 +269,6 @@ static void gessm(void *descr[], int type) {
   unsigned long mult     = 0;
   unsigned int offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
  
-#if DEBUGDIM
-  printf("\n --- GESSM ---\n");
-  printf("x_dim_a = %u\n", x_dim_a);
-  printf("y_dim_a = %u\n", y_dim_a);
-  printf("ld_a    = %u\n\n", ld_a);
-  printf("x_dim_b = %u\n", x_dim_b);
-  printf("y_dim_b = %u\n", y_dim_b);
-  printf("ld_b    = %u\n", ld_b);
-#endif
- 
-#if DEBUG00
-  printf("\n --- GESSM ---\n");
-  printf("%p -- %p\n", &sub_b[0], &sub_b[1]);
-#endif
-#if DEBUG0
-  printf("ld_a  = %u\n", ld_a);
-  printf("offset_b %u -- %u\n",offset_b, (offset_b / sizeof(TYPE)) %  ld_a);
-  offset_b  = (offset_b / sizeof(TYPE)) %  ld_a;
-  printf("correct offset %p\n", &sub_a[offset_b]);
-#endif
   for (i = 0; i < x_dim_a - 1; ++i) {  
     // reduce entries in this line mod prime
     // no other task will work on them anymore
@@ -327,30 +276,15 @@ static void gessm(void *descr[], int type) {
         sub_b[k+i*ld_b] %=  prime;
     }
     for (j = i+1; j < y_dim_a ; ++j) {  
-#if DEBUG0
-      printf("i %u -- j %u\n",i,j);
-#endif
       mult  = sub_a[i+j*ld_a];
       for (k = 0; k < x_dim_b; ++k) {
-#if DEBUG0
-      printf("mult      = %u | %p\n", mult, sub_a[i+j*ld_a]);
-      printf("i %u -- j %u -- k %u\n",i,j, k);
-#endif
         sub_b[k+j*ld_b] +=  (sub_b[k+i*ld_a] * mult);
 #if IMMEDIATE_MODULAR
         sub_b[k+j*ld_b] %=  prime;
 #endif
-#if DEBUG01
-          printf("GESSM sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
-#endif
       }
     }
   }
-#if DEBUG0
-  printf("\n --- GESSM DONE ---\n");
-  printf("TASKS READY     %d\n", starpu_task_nready());
-  printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
-#endif
 }
 
 static void gessm_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -391,64 +325,24 @@ static void trsti(void *descr[], int type) {
   unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
   unsigned long mult     = 0;
 
-#if DEBUGDIM
-  printf("\n --- TRSTI ---\n");
-  printf("x_dim_a = %u\n", x_dim_a);
-  printf("y_dim_a = %u\n", y_dim_a);
-  printf("ld_a    = %u\n\n", ld_a);
-  printf("x_dim_b = %u\n", x_dim_b);
-  printf("y_dim_b = %u\n", y_dim_b);
-  printf("ld_b    = %u\n", ld_b);
-#endif
- 
-  
-#if DEBUG00
-  printf("\n --- TRSTI ---\n");
-  printf("a %p -- %p\n", &sub_a[0], &sub_a[1]);
-  printf("b %p -- %p\n", &sub_b[0], &sub_b[1]);
-#endif
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
-#if DEBUG0
-  printf("x_dim_a = %u\n", x_dim_a);
-  printf("y_dim_a = %u\n", y_dim_a);
-  printf("ld_a  = %u\n", ld_a);
-#endif
   for (i = 0; i < x_dim_a; ++i) {  
     // compute inverse
-#if DEBUG00
-    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-    printf("inv  = %u | %p\n", neg_inv_piv[i+offset_a], &neg_inv_piv[i+offset_a]);
-#endif
     for (j = 0; j < y_dim_b; ++j) {
       // multiply by corresponding coeff
       mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_b]);
 #if MODULAR
       mult  = mult % prime;
 #endif
-#if DEBUG00
-      printf("sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
-      printf("mult     = %u | %p\n", mult, &mult);
-#endif
       sub_b[i+j*ld_b] = mult;
-#if DEBUG00
-      printf("<> sub_b[%u] = %u\n", i+j*ld_a,sub_b[i+j*ld_a]);
-#endif
       for (k = i+1; k < x_dim_b; ++k) {
         sub_b[k+j*ld_b] +=  (sub_a[k+i*ld_a] * mult);
 #if IMMEDIATE_MODULAR
         sub_b[k+j*ld_b] %=  prime;
 #endif
-#if DEBUG01
-          printf("TRSTI sub_b[%u][%u] = %u\n", j,k,sub_b[k+j*ld_a]);
-#endif
       }
     }
   }  
-#if DEBUG0
-  printf("\n --- TRSTI DONE ---\n");
-  printf("TASKS READY     %d\n", starpu_task_nready());
-  printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
-#endif
 }
 
 static void trsti_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -495,68 +389,18 @@ static void ssssm(void *descr[], int type) {
   assert(x_dim_b == x_dim_c);
   assert(y_dim_a == y_dim_c);
 
-#if DEBUGDIM
-  printf("\n --- SSSSM ---\n");
-  printf("x_dim_a = %u\n", x_dim_a);
-  printf("y_dim_a = %u\n", y_dim_a);
-  printf("ld_a    = %u\n\n", ld_a);
-  printf("x_dim_b = %u\n", x_dim_b);
-  printf("y_dim_b = %u\n", y_dim_b);
-  printf("ld_b    = %u\n\n", ld_b);
-  printf("x_dim_c = %u\n", x_dim_c);
-  printf("y_dim_c = %u\n", y_dim_c);
-  printf("ld_c    = %u\n", ld_c);
-#endif
- 
-
-#if DEBUG00
-  printf("\n --- SSSSM ---\n");
-  printf("a %p -- %p\n", &sub_a[0], &sub_a[1]);
-  printf("b %p -- %p\n", &sub_b[0], &sub_b[1]);
-  printf("c %p -- %p\n", &sub_c[0], &sub_c[1]);
-#endif
-#if DEBUG0
-  printf("x_dim_a = %u\n", x_dim_a);
-  printf("y_dim_a = %u\n", y_dim_a);
-  printf("ld_a  = %u\n", ld_a);
-  printf("offset_a  = %u\n", offset_a);
-#endif
   for (i = 0; i < x_dim_a; ++i) {  
     // compute inverse
-#if DEBUG
-    printf("sub_a[%u] = %u\n", i+i*ld_a,sub_a[i+i*ld_a]);
-#endif
     for (j = 0; j < y_dim_a; ++j) {
       // multiply by corresponding coeff
       for (k = 0; k < x_dim_b; ++k) {
-#if DEBUG01
-        printf("sub_c[%u] = %u\n", k+j*ld_a,sub_c[k+j*ld_c]);
-        printf("sub_a[%u] = %u\n", i+j*ld_a,sub_a[i+j*ld_a]);
-        printf("sub_b[%u] = %u\n", k+i*ld_a,sub_b[k+i*ld_b]);
-#endif
-        /*
-        if (k == j) {
-          printf("!! sub_c[%u][%u] = %u\n", j+offset_c,k+offset_c,sub_c[k+j*ld_a]);
-          printf("!! sub_a[%u][%u] = %u | %p\n", j,i,sub_a[i+j*ld_a], &sub_a[i+j*ld_a]);
-          printf("!! sub_b[%u][%u] = %u | %p\n", i,k,sub_b[k+i*ld_a], &sub_b[k+i*ld_a]);
-        }
-        printf("%u += %u * %u\n",sub_c[k+j*ld_a],sub_a[i+j*ld_a],sub_b[k+i*ld_a]);
-        */
         sub_c[k+j*ld_c] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_b]) ;
 #if 0
         sub_c[k+j*ld_c] %=  prime;
 #endif
-#if DEBUG01
-          printf("SSSSM sub_c[%u][%u] = %u\n", j,k,sub_c[k+j*ld_c]);
-#endif
       }
     }
   }  
-#if DEBUG0
-  printf("\n --- SSSSM DONE ---\n");
-  printf("TASKS READY     %d\n", starpu_task_nready());
-  printf("TASKS SUBMITTED %d\n", starpu_task_nsubmitted());
-#endif
 }
 
 static void ssssm_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -767,22 +611,6 @@ static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary
 	/* stall the application until the end of computations */
   // if l == m then TAG11 is the last computation
   starpu_task_wait_for_all();
-  /*
-  if (lblocks == mblocks) {
-    printf("WAIT FOR TASK 11 %u\n",boundary-1);
-	  starpu_tag_wait(TAG11(boundary-1));
-  } else {
-    // if l > m then TAG21 is the last computation
-    if (lblocks > mblocks) {
-      printf("WAIT FOR TASK 21 %u - %u\n",boundary-1, lblocks-1);
-      starpu_tag_wait(TAG21(boundary-1,lblocks-1));
-    // if l < m then TAG12 is the last computation
-    } else {
-      printf("WAIT FOR TASK 12 %u - %u\n",boundary-1, mblocks-1);
-      starpu_tag_wait(TAG12(boundary-1,mblocks-1));
-    }
-  }
-  */
 	return 0;
 }
 
@@ -821,7 +649,6 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 
 	/* initialize matrix content */
 	unsigned long i,j;
-/*
 	for (j = 0; j < l_init; j++)
   {
 		for (i = 0; i < m_init; i++)
@@ -848,7 +675,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 #endif
 		}
 	}
- */
+/*
 	for (j = 0; j < l; j++)
   {
 		for (i = 0; i < m; i++)
@@ -859,6 +686,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
         A[i+j*m] = 0;
     }
   }
+ */
 }
 
 static void save_matrix(void)
