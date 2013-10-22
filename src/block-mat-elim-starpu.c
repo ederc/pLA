@@ -31,7 +31,7 @@
  */
 #define MODULUS             1
 // !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
-#define DELAYED_MODULUS     1
+#define DELAYED_MODULUS     0
 // cache-oblivious implementation
 
 typedef unsigned long TYPE;
@@ -47,6 +47,7 @@ static unsigned lblocks     = 0;
 static unsigned mblocks     = 0;
 static unsigned tile_size   = 128;
 static unsigned check       = 0;
+static unsigned display     = 0;
 static unsigned pivot       = 0;
 static unsigned no_stride   = 0;
 static unsigned profile     = 1;
@@ -113,20 +114,28 @@ void elim(TYPE *cc, unsigned int l, unsigned int m) {
 
 static void display_matrix(TYPE *a, unsigned l, unsigned m, unsigned ld, char *str)
 {
-  if (l < 65 && m < 65)
+  if (l < 33 && m < 33)
   {
-    printf("***********\n");
-    printf("Display matrix %s\n", str);
+    printf("=======================================================\n");
+    printf("Start -- matrix %s\n", str);
+    printf("-------------------------------------------------------\n");
     unsigned i,j;
     for (j = 0; j < l; j++)
     {
       for (i = 0; i < m; i++)
       {
+// print corresponding memory addresses only in debug mode
+#if DEBUG
         printf("%d|%p\t", a[i+j*ld],&a[i+j*ld]);
+#else
+        printf("%d\t", a[i+j*ld]);
+#endif
       }
       printf("\n");
     }
-	printf("***********\n");
+    printf("-------------------------------------------------------\n");
+    printf("End -- matrix %s\n", str);
+    printf("=======================================================\n\n\n");
   }
 }
 
@@ -141,13 +150,14 @@ void print_help(int exval) {
   printf("       -b SIZE   block- resp. tile size\n");
   printf("                 default: 128\n");
   printf("       -c        check result against naive sequential GEP\n");
+  printf("       -d        display matrix if l<=32 and m<=32\n");
   printf("       -h        print help\n");
   printf("       -l ROWSA  row size of matrix A\n");
   printf("                 default: 4096\n");
   printf("       -m COLSA  column size of matrix A and row size of matrix B\n");
   printf("                 default: 4096\n");
   printf("       -p        field characteristic\n");
-  printf("                 default: 32003\n"); 
+  printf("                 default: 65521\n"); 
 
   exit(exval);
 }
@@ -160,7 +170,7 @@ static int parse_args(int argc, char **argv)
     //print_help(1);
   }
 
-  while((opt = getopt(argc, argv, "hl:m:b:p:c")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:b:p:cd")) != -1) {
     switch(opt) {
       case 'h':
         print_help(0);
@@ -177,6 +187,9 @@ static int parse_args(int argc, char **argv)
         break;
       case 'c': 
         check = 1;
+        break;
+      case 'd': 
+        display = 1;
         break;
       case 'p': 
         prime = atoi(strdup(optarg));
@@ -839,7 +852,7 @@ int main(int argc, char *argv[]) {
 	if (check)
 		save_matrix();
 
-	if (check)
+	if (display)
     display_matrix(A, l, m, m, "A");
 
 	if (bound)
