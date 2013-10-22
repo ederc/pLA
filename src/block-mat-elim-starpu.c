@@ -785,6 +785,7 @@ static void check_result(void)
     }
   }
   printf("%u / %u elements NOT matching\n", ctr2, ctr);
+  printf("-------------------------------------------------------\n");
 }
 
 static void init_matrix(unsigned l_init, unsigned m_init)
@@ -909,7 +910,7 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
     printf("CPU/real time:    %.4f\n", ratio);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("GFLOPS/sec:       %.4f\n", flops / (1000000000 * realtime));
-  printf("=======================================================\n");
+  printf("-------------------------------------------------------\n");
 
 	/* gather all the data */
 	//starpu_data_unpartition(dataA, STARPU_MAIN_RAM);
@@ -1011,19 +1012,19 @@ int main(int argc, char *argv[]) {
 
 	if (check)
 	{
-		FPRINTF(stderr,
-      "\n=======================================================\nChecking result\n");
+    printf("-------------------------------------------------------\n");
+    printf("Checking result\n");
 
 		check_result();
 	}
 
   starpu_free(A);
 
-	FPRINTF(stderr,
-    "\n=======================================================\nShutting down\n");
 	starpu_cublas_shutdown();
-
 	starpu_shutdown();
+
+	printf("Shutting down\n");
+  printf("=======================================================\n");
 
 	if (ret == -ENODEV) return 77; else return 0;
   // compute FLOPS:
