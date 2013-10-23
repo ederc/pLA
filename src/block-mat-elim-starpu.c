@@ -38,7 +38,7 @@ typedef unsigned long TYPE;
 
 TYPE *neg_inv_piv;
 TYPE *A, *A_saved;
-static unsigned long prime  = 65521;
+static TYPE prime           = 65521;
 static unsigned l_init      = 4096;
 static unsigned m_init      = 4096;
 static unsigned l           = 4096;
@@ -68,14 +68,14 @@ static unsigned no_prio     = 0;
 					| (unsigned long long)(j))))
 
 // multiplies A*B^T and stores it in *this
-void elim(TYPE *cc, unsigned int l, unsigned int m) {
-  unsigned int i, j, k;
+void elim(TYPE *cc, unsigned l, unsigned m) {
+  unsigned i, j, k;
 
   //C.resize(l*m);
-  unsigned int sum = 0;
+  unsigned sum = 0;
  
-  unsigned int boundary = (l > m) ? m : l;
-  unsigned int inv, mult;
+  unsigned boundary = (l > m) ? m : l;
+  unsigned inv, mult;
 
   struct timeval start, stop;
   clock_t cStart, cStop;
@@ -143,7 +143,7 @@ static void display_matrix(TYPE *a, unsigned l, unsigned m, unsigned ld, char *s
 void print_help(int exval) {
   printf("DESCRIPTION\n");
   printf("       Computes the Gaussian Elimination of a matrix A with\n");
-  printf("       unsigned integer entries.\n");
+  printf("       unsignedeger entries.\n");
   printf("       It uses StarPU.\n");
 
   printf("OPTIONS\n");
@@ -212,13 +212,13 @@ static void getri(void *descr[], int type) {
   // |----------------------------|
   // |   |   |   |   |   |   |    |
   // ------------------------------
-  unsigned int i, j, k;
-  unsigned long *sub_a   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned int y_dim    = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
-  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned long mult     = 0;
+  unsigned i, j, k;
+  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned y_dim    = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
+  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE mult             = 0;
  
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
 
@@ -276,17 +276,17 @@ static void gessm(void *descr[], int type) {
   // |----------------------------|
   // |   |   |   |   |   |   |    |
   // ------------------------------
-  unsigned int i, j, k;
-  unsigned long *sub_a   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned long *sub_b   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  unsigned long mult     = 0;
-  unsigned int offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
+  unsigned i, j, k;
+  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE *sub_b           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
+  TYPE mult             = 0;
+  unsigned offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
  
   for (i = 0; i < x_dim_a - 1; ++i) {  
     // reduce entries in this line mod prime
@@ -334,17 +334,17 @@ static void trsti(void *descr[], int type) {
   // |----------------------------|
   // |   |   |   |   |   |   |    |
   // ------------------------------
-  unsigned int i, j, k;
-  unsigned long *sub_a   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  unsigned long *sub_b   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  unsigned long mult     = 0;
+  unsigned i, j, k;
+  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  TYPE *sub_b           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
+  TYPE mult             = 0;
 
   offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
   for (i = 0; i < x_dim_a; ++i) {  
@@ -391,21 +391,21 @@ static void ssssm(void *descr[], int type) {
   // |----------------------------|
   // |   |   |   |   |   |   |    |
   // ------------------------------
-  unsigned int i, j, k;
-  unsigned long *sub_a   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned int x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned int y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned int ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  unsigned int offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  unsigned long *sub_b   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned int x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned int y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned int ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  unsigned long *sub_c   = (unsigned long *)STARPU_MATRIX_GET_PTR(descr[2]);
-  unsigned int x_dim_c  = STARPU_MATRIX_GET_NX(descr[2]);
-  unsigned int y_dim_c  = STARPU_MATRIX_GET_NY(descr[2]);
-  unsigned int ld_c     = STARPU_MATRIX_GET_LD(descr[2]);
-  unsigned long mult     = 0;
+  unsigned i, j, k;
+  TYPE *sub_a   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
+  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
+  TYPE *sub_b   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
+  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
+  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
+  TYPE *sub_c   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[2]);
+  unsigned x_dim_c  = STARPU_MATRIX_GET_NX(descr[2]);
+  unsigned y_dim_c  = STARPU_MATRIX_GET_NY(descr[2]);
+  unsigned ld_c     = STARPU_MATRIX_GET_LD(descr[2]);
+  TYPE mult             = 0;
 
   assert(x_dim_b == x_dim_c);
   assert(y_dim_a == y_dim_c);
@@ -591,7 +591,7 @@ static int create_task_22(starpu_data_handle_t dataA, unsigned k, unsigned i, un
  *	code to bootstrap the factorization
  */
 
-static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned int boundary)
+static int dw_codelet_facto_v3(starpu_data_handle_t dataA, unsigned boundary)
 {
 	int ret;
 	struct starpu_task *entry_task = NULL;
@@ -645,7 +645,7 @@ static void check_result(void)
 {
 	unsigned i,j;
   elim(A_saved, l, m);
-  unsigned int ctr  = 0, ctr2 = 0, ctr3 = 0;
+  unsigned ctr  = 0, ctr2 = 0, ctr3 = 0;
   for (i=0; i<l; ++i) {
     for (j=i; j<m; ++j) {
       ctr++;

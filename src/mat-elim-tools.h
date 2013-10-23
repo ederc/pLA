@@ -42,21 +42,22 @@ double countGEPFlops(unsigned int m, unsigned int n) {
   return res;
 }
 
+typedef unsigned long TYPE;
 
-unsigned long negInverseModP(unsigned long a, unsigned long prime) {
+TYPE negInverseModP(TYPE a, TYPE prime) {
   // we do two turns of the extended Euclidian algorithm per
   // loop. Usually the sign of x changes each time through the loop,
   // but we avoid that by representing every other x as its negative,
   // which is the value minusLastX. This way no negative values show
   // up.
-  unsigned long b           = prime;
-  unsigned long minusLastX  = 0;
-  unsigned long x           = 1;
+  TYPE b           = prime;
+  TYPE minusLastX  = 0;
+  TYPE x           = 1;
   while (1) {
     // 1st turn
     if (a == 1)
       break;
-    const unsigned long firstQuot  =   b / a;
+    const TYPE firstQuot  =   b / a;
     b                             -=  firstQuot * a;
     minusLastX                    +=  firstQuot * x;
 
@@ -65,7 +66,7 @@ unsigned long negInverseModP(unsigned long a, unsigned long prime) {
       x = prime - minusLastX;
       break;
     }
-    const unsigned long secondQuot =   a / b;
+    const TYPE secondQuot =   a / b;
     a                             -=  secondQuot * b;
     x                             +=  secondQuot * minusLastX;
   }
