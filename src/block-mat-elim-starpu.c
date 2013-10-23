@@ -213,37 +213,36 @@ static void getri(void *descr[], int type) {
   // |   |   |   |   |   |   |    |
   // ------------------------------
   unsigned i, j, k;
-  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned x_dim    = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned y_dim    = STARPU_MATRIX_GET_NY(descr[0]);
+  TYPE *sub_a       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
-  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  TYPE mult             = 0;
+  unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE mult         = 0;
  
-  offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
+  offset_a  = (offset_a / sizeof(TYPE)) %  ld;
 
-  for (i = 0; i < y_dim; ++i) {  
+  for (i = 0; i < tile_dim; ++i) {  
 #if MODULUS == 1 && DELAYED_MODULUS == 1
-        sub_a[i+i*ld_a] %=  prime;
+        sub_a[i+i*ld] %=  prime;
 #endif
     // compute inverse
-    neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld_a], prime);
+    neg_inv_piv[i+offset_a] = negInverseModP(sub_a[i+i*ld], prime);
 #if MODULUS == 1 && DELAYED_MODULUS == 1
-    for (j = i+1; j < x_dim; ++j) {
-        sub_a[j+i*ld_a] %=  prime;
+    for (j = i+1; j < tile_dim; ++j) {
+        sub_a[j+i*ld] %=  prime;
     }
 #endif
-    for (j = i+1; j < x_dim; ++j) {
+    for (j = i+1; j < tile_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld_a]);
+      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld]);
 #if MODULUS == 1
       mult  = mult % prime;
 #endif
-      sub_a[i+j*ld_a] = mult;
-      for (k = i+1; k < y_dim; ++k) {
-        sub_a[k+j*ld_a] +=  (sub_a[k+i*ld_a] * mult);
+      sub_a[i+j*ld] = mult;
+      for (k = i+1; k < tile_dim; ++k) {
+        sub_a[k+j*ld] +=  (sub_a[k+i*ld] * mult);
 #if MODULUS == 1
-        sub_a[k+j*ld_a] %=  prime;
+        sub_a[k+j*ld] %=  prime;
 #endif
       }
     }
@@ -277,31 +276,26 @@ static void gessm(void *descr[], int type) {
   // |   |   |   |   |   |   |    |
   // ------------------------------
   unsigned i, j, k;
-  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
-  TYPE *sub_b           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  TYPE mult             = 0;
-  unsigned offset_b = STARPU_MATRIX_GET_OFFSET(descr[1]);
+  TYPE *sub_a       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  TYPE *sub_b       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE mult         = 0;
  
-  for (i = 0; i < x_dim_a - 1; ++i) {  
+  for (i = 0; i < tile_dim - 1; ++i) {  
     // reduce entries in this line mod prime
     // no other task will work on them anymore
 #if MODULUS == 1 && DELAYED_MODULUS == 1
-    for (k = 0; k < x_dim_b; ++k) {
-        sub_b[k+i*ld_b] %=  prime;
+    for (k = 0; k < tile_dim; ++k) {
+        sub_b[k+i*ld] %=  prime;
     }
 #endif
-    for (j = i+1; j < y_dim_a ; ++j) {  
-      mult  = sub_a[i+j*ld_a];
-      for (k = 0; k < x_dim_b; ++k) {
-        sub_b[k+j*ld_b] +=  (sub_b[k+i*ld_a] * mult);
+    for (j = i+1; j < tile_dim; ++j) {  
+      mult  = sub_a[i+j*ld];
+      for (k = 0; k < tile_dim; ++k) {
+        sub_b[k+j*ld] +=  (sub_b[k+i*ld] * mult);
 #if MODULUS == 1
-        sub_b[k+j*ld_b] %=  prime;
+        sub_b[k+j*ld] %=  prime;
 #endif
       }
     }
@@ -335,31 +329,27 @@ static void trsti(void *descr[], int type) {
   // |   |   |   |   |   |   |    |
   // ------------------------------
   unsigned i, j, k;
-  TYPE *sub_a           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE *sub_a       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  TYPE *sub_b       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  TYPE *sub_b           = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  TYPE mult             = 0;
+  TYPE mult         = 0;
 
-  offset_a  = (offset_a / sizeof(TYPE)) %  ld_a;
-  for (i = 0; i < x_dim_a; ++i) {  
+  offset_a  = (offset_a / sizeof(TYPE)) %  ld;
+  for (i = 0; i < tile_dim; ++i) {  
     // compute inverse
-    for (j = 0; j < y_dim_b; ++j) {
+    for (j = 0; j < tile_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld_b]);
+      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld]);
 #if MODULUS == 1
       mult  = mult % prime;
 #endif
-      sub_b[i+j*ld_b] = mult;
-      for (k = i+1; k < x_dim_b; ++k) {
-        sub_b[k+j*ld_b] +=  (sub_a[k+i*ld_a] * mult);
+      sub_b[i+j*ld] = mult;
+      for (k = i+1; k < tile_dim; ++k) {
+        sub_b[k+j*ld] +=  (sub_a[k+i*ld] * mult);
 #if MODULUS == 1
-        sub_b[k+j*ld_b] %=  prime;
+        sub_b[k+j*ld] %=  prime;
 #endif
       }
     }
@@ -392,30 +382,20 @@ static void ssssm(void *descr[], int type) {
   // |   |   |   |   |   |   |    |
   // ------------------------------
   unsigned i, j, k;
-  TYPE *sub_a   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
-  unsigned x_dim_a  = STARPU_MATRIX_GET_NX(descr[0]);
-  unsigned y_dim_a  = STARPU_MATRIX_GET_NY(descr[0]);
-  unsigned ld_a     = STARPU_MATRIX_GET_LD(descr[0]);
+  TYPE *sub_a       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[0]);
+  TYPE *sub_b       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
+  TYPE *sub_c       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[2]);
+  unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
+  unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  TYPE *sub_b   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
-  unsigned x_dim_b  = STARPU_MATRIX_GET_NX(descr[1]);
-  unsigned y_dim_b  = STARPU_MATRIX_GET_NY(descr[1]);
-  unsigned ld_b     = STARPU_MATRIX_GET_LD(descr[1]);
-  TYPE *sub_c   = (TYPE *)STARPU_MATRIX_GET_PTR(descr[2]);
-  unsigned x_dim_c  = STARPU_MATRIX_GET_NX(descr[2]);
-  unsigned y_dim_c  = STARPU_MATRIX_GET_NY(descr[2]);
-  unsigned ld_c     = STARPU_MATRIX_GET_LD(descr[2]);
-  TYPE mult             = 0;
+  TYPE mult         = 0;
 
-  assert(x_dim_b == x_dim_c);
-  assert(y_dim_a == y_dim_c);
-
-  for (i = 0; i < x_dim_a; ++i) {  
+  for (i = 0; i < tile_dim; ++i) {  
     // compute inverse
-    for (j = 0; j < y_dim_a; ++j) {
+    for (j = 0; j < tile_dim; ++j) {
       // multiply by corresponding coeff
-      for (k = 0; k < x_dim_b; ++k) {
-        sub_c[k+j*ld_c] +=  (sub_a[i+j*ld_a] * sub_b[k+i*ld_b]) ;
+      for (k = 0; k < tile_dim; ++k) {
+        sub_c[k+j*ld] +=  (sub_a[i+j*ld] * sub_b[k+i*ld]) ;
 
 /*
  * This is the only place where we do not need to compute an immediate modulus
@@ -423,7 +403,7 @@ static void ssssm(void *descr[], int type) {
  * GETRI, GESSM and TRSTI (macro DELAYED_MODULUS)
  */
 #if MODULUS == 1 && DELAYED_MODULUS == 0
-        sub_c[k+j*ld_c] %=  prime;
+        sub_c[k+j*ld] %=  prime;
 #endif
       }
     }
