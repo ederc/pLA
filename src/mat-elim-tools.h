@@ -44,7 +44,7 @@ double countGEPFlops(unsigned int m, unsigned int n) {
 
 typedef unsigned long TYPE;
 
-TYPE negInverseModP(TYPE a, TYPE prime) {
+static inline TYPE negInverseModP(TYPE a, TYPE prime) {
   // we do two turns of the extended Euclidian algorithm per
   // loop. Usually the sign of x changes each time through the loop,
   // but we avoid that by representing every other x as its negative,
