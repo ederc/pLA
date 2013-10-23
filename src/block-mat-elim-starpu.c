@@ -31,7 +31,7 @@
  */
 #define MODULUS             1
 // !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
-#define DELAYED_MODULUS     0
+#define DELAYED_MODULUS     1
 // cache-oblivious implementation
 
 typedef unsigned long TYPE;
@@ -771,7 +771,8 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  double flops = (2.0f*l*m*boundary)/3.0f;
+  double flops = (2.0f*lblocks*mblocks*tile_size*tile_size*tile_size)/3.0f;
+  //double flops = (2.0f*l*m*boundary)/3.0f;
   //flops = countGEPFlops(l, m);
 
   float epsilon = 0.0000000001;
