@@ -771,8 +771,9 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  double flops = 0;
-  flops = countGEPFlops(l, m);
+  double flops = (2.0f*l*m*boundary)/3.0f;
+  //flops = countGEPFlops(l, m);
+
   float epsilon = 0.0000000001;
   double realtime = ((stop.tv_sec - start.tv_sec) * 1e6 + 
                     (stop.tv_usec - start.tv_usec)) / 1e6;
@@ -808,12 +809,12 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   printf("-------------------------------------------------------\n");
   printf("#Threads:             %d\n", number_threads);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("Real time:            %.4f sec\n", realtime);
-  printf("CPU time:             %.4f sec\n", cputime);
+  printf("Real time:            %.3f sec\n", realtime);
+  printf("CPU time:             %.3f sec\n", cputime);
   if (cputime > epsilon)
-    printf("CPU/real time:        %.4f\n", ratio);
+    printf("CPU/real time:        %.2f\n", ratio);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
-  printf("GFLOPS/sec:           %.4f\n", flops / (1000000000 * realtime));
+  printf("GFLOPS/sec:           %.2f\n", flops /1000.0f/1000.0f/realtime);
   printf("-------------------------------------------------------\n");
 
 	/* gather all the data */
