@@ -45,7 +45,7 @@ static unsigned l           = 4096;
 static unsigned m           = 4096;
 static unsigned lblocks     = 0;
 static unsigned mblocks     = 0;
-static unsigned tile_size   = 128;
+static unsigned tile_size   = 96;
 static unsigned check       = 0;
 static unsigned display     = 0;
 static unsigned pivot       = 0;
@@ -148,7 +148,7 @@ void print_help(int exval) {
 
   printf("OPTIONS\n");
   printf("       -b SIZE   block- resp. tile size\n");
-  printf("                 default: 128\n");
+  printf("                 default: 96\n");
   printf("       -c        check result against naive sequential GEP\n");
   printf("       -d        display matrix if l<=32 and m<=32\n");
   printf("       -h        print help\n");
