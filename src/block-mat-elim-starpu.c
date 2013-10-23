@@ -234,13 +234,12 @@ static void getri(void *descr[], int type) {
 #endif
     for (j = i+1; j < tile_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_a[i+j*ld]);
+      sub_a[i+j*ld] *= neg_inv_piv[i+offset_a];
 #if MODULUS == 1
-      mult  = mult % prime;
+      sub_a[i+j*ld] %=  prime;
 #endif
-      sub_a[i+j*ld] = mult;
       for (k = i+1; k < tile_dim; ++k) {
-        sub_a[k+j*ld] +=  (sub_a[k+i*ld] * mult);
+        sub_a[k+j*ld] +=  (sub_a[k+i*ld] * sub_a[i+j*ld]);
 #if MODULUS == 1
         sub_a[k+j*ld] %=  prime;
 #endif
