@@ -17,11 +17,11 @@
 /*
  * The algorithm might extend the matrix dimensions l resp. m in order to fit to
  * the tile size given. If ZEROFILL is defined then the corresponding border of
- * the matrix is filled with zeros.
- * Right now we have no pivoting included thus we do not check for zeros. so we
- * fill with random entries
+ * the matrix is filled with zeros and ones only on the diagonal.
+ * Right now we have no pivoting included thus we do not check for zeros. So we
+ * cannot fill with zeros only at the moment.
  */
-#define ZEROFILL            0
+#define ZEROFILL            1
 #define DEBUG               0
 /*
  * MODULUS and DELAYED_MODULUS need to be combined:
@@ -685,7 +685,10 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 		for (i = m_init; i < m; i++)
 		{
 #if ZEROFILL
-      A[i+j*m]  = 0;
+      if (j != i)
+        A[i+j*m]  = 0;
+      else
+        A[i+j*m]  = 1;
 #else
       A[i+j*m]  = rand() % prime;
 #endif
@@ -696,7 +699,10 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 		for (i = 0; i < m; i++)
 		{
 #if ZEROFILL
-      A[i+j*m]  = 0;
+      if (j != i)
+        A[i+j*m]  = 0;
+      else
+        A[i+j*m]  = 1;
 #else
       A[i+j*m]  = rand() % prime;
 #endif
