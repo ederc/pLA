@@ -72,3 +72,16 @@ TYPE negInverseModP(TYPE a, TYPE prime) {
   }
   return prime - x;
 }
+
+// division version of Russian Peasant Multiplication
+static inline TYPE modulo(TYPE a, TYPE prime) {
+  TYPE b           = prime;
+  while (b < a/2)
+    b <<= 1;
+  while (a >= prime) {
+    if (a >= b)
+      a -= b;
+    b >>= 1;
+  }
+  return a;
+}

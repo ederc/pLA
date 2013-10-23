@@ -217,7 +217,6 @@ static void getri(void *descr[], int type) {
   unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
   unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
-  TYPE mult         = 0;
  
   offset_a  = (offset_a / sizeof(TYPE)) %  ld;
 
@@ -238,6 +237,8 @@ static void getri(void *descr[], int type) {
 #if MODULUS == 1
       sub_a[i+j*ld] %=  prime;
 #endif
+    }
+    for (j = i+1; j < tile_dim; ++j) {
       for (k = i+1; k < tile_dim; ++k) {
         sub_a[k+j*ld] +=  (sub_a[k+i*ld] * sub_a[i+j*ld]);
 #if MODULUS == 1
@@ -279,7 +280,6 @@ static void gessm(void *descr[], int type) {
   TYPE *sub_b       = (TYPE *)STARPU_MATRIX_GET_PTR(descr[1]);
   unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
-  TYPE mult         = 0;
  
   for (i = 0; i < tile_dim - 1; ++i) {  
     // reduce entries in this line mod prime
@@ -290,9 +290,8 @@ static void gessm(void *descr[], int type) {
     }
 #endif
     for (j = i+1; j < tile_dim; ++j) {  
-      mult  = sub_a[i+j*ld];
       for (k = 0; k < tile_dim; ++k) {
-        sub_b[k+j*ld] +=  (sub_b[k+i*ld] * mult);
+        sub_b[k+j*ld] +=  (sub_b[k+i*ld] * sub_a[i+j*ld]);
 #if MODULUS == 1
         sub_b[k+j*ld] %=  prime;
 #endif
@@ -333,20 +332,20 @@ static void trsti(void *descr[], int type) {
   unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  TYPE mult         = 0;
 
   offset_a  = (offset_a / sizeof(TYPE)) %  ld;
   for (i = 0; i < tile_dim; ++i) {  
     // compute inverse
     for (j = 0; j < tile_dim; ++j) {
       // multiply by corresponding coeff
-      mult  = (neg_inv_piv[i+offset_a] * sub_b[i+j*ld]);
+      sub_b[i+j*ld] *=  neg_inv_piv[i+offset_a];
 #if MODULUS == 1
-      mult  = mult % prime;
+      sub_b[i+j*ld] %=  prime;
 #endif
-      sub_b[i+j*ld] = mult;
+    }
+    for (j = 0; j < tile_dim; ++j) {
       for (k = i+1; k < tile_dim; ++k) {
-        sub_b[k+j*ld] +=  (sub_a[k+i*ld] * mult);
+        sub_b[k+j*ld] +=  (sub_a[k+i*ld] * sub_b[i+j*ld]);
 #if MODULUS == 1
         sub_b[k+j*ld] %=  prime;
 #endif
@@ -387,11 +386,10 @@ static void ssssm(void *descr[], int type) {
   unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
   unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
-  TYPE mult         = 0;
 
-  for (i = 0; i < tile_dim; ++i) {  
     // compute inverse
-    for (j = 0; j < tile_dim; ++j) {
+  for (j = 0; j < tile_dim; ++j) {
+    for (i = 0; i < tile_dim; ++i) {  
       // multiply by corresponding coeff
       for (k = 0; k < tile_dim; ++k) {
         sub_c[k+j*ld] +=  (sub_a[i+j*ld] * sub_b[k+i*ld]) ;
@@ -655,6 +653,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 
 	/* initialize matrix content */
 	unsigned long i,j;
+/*
 	for (j = 0; j < l_init; j++)
   {
 		for (i = 0; i < m_init; i++)
@@ -687,7 +686,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 #endif
 		}
 	}
-/*
+ */
 	for (j = 0; j < l; j++)
   {
 		for (i = 0; i < m; i++)
@@ -698,7 +697,6 @@ static void init_matrix(unsigned l_init, unsigned m_init)
         A[i+j*m] = 0;
     }
   }
- */
 }
 
 static void save_matrix(void)
@@ -750,7 +748,7 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  double flops = (2.0f*lblocks*mblocks*tile_size*tile_size*tile_size)/3.0f;
+  double flops = (2.0f*lblocks*mblocks*tile_size*tile_size*tile_size)/3.0f/3.0f;
   //double flops = (2.0f*l*m*boundary)/3.0f;
   //flops = countGEPFlops(l, m);
 
