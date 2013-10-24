@@ -748,7 +748,7 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  double flops = (2.0f*lblocks*mblocks*tile_size*tile_size*tile_size)/3.0f/3.0f;
+  double flops = (2.0f*l*m*boundary)/3.0f/3.0f;
   //double flops = (2.0f*l*m*boundary)/3.0f;
   //flops = countGEPFlops(l, m);
 
