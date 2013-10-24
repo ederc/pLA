@@ -238,15 +238,18 @@ static void getri(void *descr[], int type) {
       sub_a[i+j*ld] %=  prime;
 #endif
     }
-    for (j = i+1; j < tile_dim; ++j) {
       for (k = i+1; k < tile_dim; ++k) {
+    for (j = i+1; j < tile_dim; ++j) {
         sub_a[k+j*ld] +=  (sub_a[k+i*ld] * sub_a[i+j*ld]);
-#if MODULUS == 1
+#if MODULUS == 1 && DELAYED_MODULUS == 1
         sub_a[k+j*ld] %=  prime;
 #endif
       }
     }
-  }  
+  }
+#if MODULUS == 0 && DELAYED_MODULUS == 0
+  sub_a[(tile_dim-1)+(tile_dim-1)*ld] %=  prime;
+#endif
 }
 
 static void getri_base(void *descr[], __attribute__((unused)) void *arg) {
