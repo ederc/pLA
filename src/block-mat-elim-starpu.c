@@ -220,7 +220,7 @@ static void getri(void *descr[], int type) {
  
   offset_a  = (offset_a / sizeof(TYPE)) %  ld;
 
-  for (i = 0; i < tile_dim; ++i) {  
+  for (i = 0; i < tile_dim-1; ++i) {  
 #if MODULUS == 1 && DELAYED_MODULUS == 1
         sub_a[i+i*ld] %=  prime;
 #endif
@@ -241,14 +241,19 @@ static void getri(void *descr[], int type) {
       for (k = i+1; k < tile_dim; ++k) {
     for (j = i+1; j < tile_dim; ++j) {
         sub_a[k+j*ld] +=  (sub_a[k+i*ld] * sub_a[i+j*ld]);
-#if MODULUS == 1 && DELAYED_MODULUS == 1
+// don't do this if delayed modulus. we take care of this in the next round of
+// the outer for loop going over i
+#if MODULUS == 1 && DELAYED_MODULUS == 0
         sub_a[k+j*ld] %=  prime;
 #endif
       }
     }
   }
-#if MODULUS == 0 && DELAYED_MODULUS == 0
+// if we delay modulus this last element on the diagonal is not reduced w.r.t.
+// prime in the above for loop going over i till
+#if MODULUS == 1 && DELAYED_MODULUS == 1
   sub_a[(tile_dim-1)+(tile_dim-1)*ld] %=  prime;
+  neg_inv_piv[tile_dim-1+offset_a] = negInverseModP(sub_a[(tile_dim-1)+(tile_dim-1)*ld], prime);
 #endif
 }
 
