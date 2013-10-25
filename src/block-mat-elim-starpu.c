@@ -39,6 +39,14 @@
 #define DEBUG               0
 #define RANDOM_MAT          1
 
+/*
+ * transpose B part in TRSTI to receive a better cache alignment in SSSSM
+ * -------------------------------------------------------------------------
+ * NOTE on 25/10/2013: transposing is usually slower since SSSSM has already
+ * good alignments even it not transposed
+ */
+#define TRANSPOSE           0
+
 typedef unsigned long TYPE;
 
 TYPE *neg_inv_piv;
@@ -368,6 +376,17 @@ static void trsti(void *descr[], int type) {
       }
     }
   }  
+#if TRANSPOSE
+  // transpose b
+  TYPE temp  = 0;
+  for (i=0; i<tile_dim; ++i) {
+    for (j=i+1; j<tile_dim; ++j) {
+      temp          = sub_b[i+j*ld];
+      sub_b[i+j*ld] = sub_b[j+i*ld];
+      sub_b[j+i*ld] = temp;
+    }
+  }
+#endif
 }
 
 static void trsti_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -408,7 +427,11 @@ static void ssssm(void *descr[], int type) {
     for (i = 0; i < tile_dim; ++i) {  
       // multiply by corresponding coeff
       for (k = 0; k < tile_dim; ++k) {
+#if TRANSPOSE
+        sub_c[k+j*ld] +=  (sub_a[j+i*ld] * sub_b[k+i*ld]) ;
+#else
         sub_c[k+j*ld] +=  (sub_a[i+j*ld] * sub_b[k+i*ld]) ;
+#endif
 
 /*
  * This is the only place where we do not need to compute an immediate modulus
@@ -765,7 +788,7 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   gettimeofday(&stop, NULL);
   cStop = clock();
 
-  double flops = (2.0f*l*m*boundary)/3.0f/3.0f;
+  double flops = (2.0f*l_init*m_init*boundary)/3.0f/3.0f;
   //double flops = (2.0f*l*m*boundary)/3.0f;
   //flops = countGEPFlops(l, m);
 
