@@ -32,6 +32,10 @@
 // !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
 #define DELAYED_MODULUS     1
 
+/*
+ * for debugging code. if RANDOM_MAT == 0 then a specific matrix is generated
+ * and thus values in the matrix of several runs of the code coincides.
+ */
 #define DEBUG               0
 #define RANDOM_MAT          1
 
