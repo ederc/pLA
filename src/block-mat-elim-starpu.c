@@ -22,7 +22,6 @@
  * cannot fill with zeros only at the moment.
  */
 #define ZEROFILL            1
-#define DEBUG               0
 /*
  * MODULUS and DELAYED_MODULUS need to be combined:
  * 1. no modulus computation:       MODULUS 0, DELAYED_MODULUS 0/1
@@ -32,7 +31,9 @@
 #define MODULUS             1
 // !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
 #define DELAYED_MODULUS     1
-// cache-oblivious implementation
+
+#define DEBUG               0
+#define RANDOM_MAT          1
 
 typedef unsigned long TYPE;
 
@@ -300,12 +301,19 @@ static void gessm(void *descr[], int type) {
     for (j = i+1; j < tile_dim; ++j) {  
       for (k = 0; k < tile_dim; ++k) {
         sub_b[k+j*ld] +=  (sub_b[k+i*ld] * sub_a[i+j*ld]);
-#if MODULUS == 1 && DELAYED_MODULUS == 1
+#if MODULUS == 1 && DELAYED_MODULUS == 0
         sub_b[k+j*ld] %=  prime;
 #endif
       }
     }
   }
+// if we delay modulus this last element on the diagonal is not reduced w.r.t.
+// prime in the above for loop going over i till
+#if MODULUS == 1 && DELAYED_MODULUS == 1
+  for (k = 0; k < tile_dim; ++k) {
+        sub_b[k+(tile_dim-1)*ld] %=  prime;
+  }
+#endif
 }
 
 static void gessm_base(void *descr[], __attribute__((unused)) void *arg) {
@@ -342,7 +350,7 @@ static void trsti(void *descr[], int type) {
   unsigned offset_a = STARPU_MATRIX_GET_OFFSET(descr[0]);
 
   offset_a  = (offset_a / sizeof(TYPE)) %  ld;
-  for (i = 0; i < tile_dim; ++i) {  
+  for (i = 0; i < tile_dim; ++i) {
     // compute inverse
     for (j = 0; j < tile_dim; ++j) {
       // multiply by corresponding coeff
@@ -661,7 +669,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 
 	/* initialize matrix content */
 	unsigned long i,j;
-/*
+#if RANDOM_MAT == 1
 	for (j = 0; j < l_init; j++)
   {
 		for (i = 0; i < m_init; i++)
@@ -694,7 +702,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 #endif
 		}
 	}
- */
+#else
 	for (j = 0; j < l; j++)
   {
 		for (i = 0; i < m; i++)
@@ -705,6 +713,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
         A[i+j*m] = 0;
     }
   }
+#endif
 }
 
 static void save_matrix(void)
@@ -865,6 +874,8 @@ int main(int argc, char *argv[]) {
 
 
 	ret = lu_decomposition(A, l, m, tile_size);
+	if (display)
+    display_matrix(A, l, m, m, "A");
 
 	if (profile)
 	{
