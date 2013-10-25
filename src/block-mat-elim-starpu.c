@@ -300,7 +300,7 @@ static void gessm(void *descr[], int type) {
     for (j = i+1; j < tile_dim; ++j) {  
       for (k = 0; k < tile_dim; ++k) {
         sub_b[k+j*ld] +=  (sub_b[k+i*ld] * sub_a[i+j*ld]);
-#if MODULUS == 1
+#if MODULUS == 1 && DELAYED_MODULUS == 1
         sub_b[k+j*ld] %=  prime;
 #endif
       }
@@ -354,7 +354,7 @@ static void trsti(void *descr[], int type) {
     for (j = 0; j < tile_dim; ++j) {
       for (k = i+1; k < tile_dim; ++k) {
         sub_b[k+j*ld] +=  (sub_a[k+i*ld] * sub_b[i+j*ld]);
-#if MODULUS == 1
+#if MODULUS == 1 && DELAYED_MODULUS == 0
         sub_b[k+j*ld] %=  prime;
 #endif
       }
