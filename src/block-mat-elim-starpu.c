@@ -12,7 +12,7 @@
 #include <starpu_data.h>
 
 #include "pla-config.h"
-#include "mat-elim-tools.h"
+//#include "mat-elim-tools.h"
 
 /*
  * The algorithm might extend the matrix dimensions l resp. m in order to fit to
@@ -68,6 +68,36 @@ static unsigned bound       = 0;
 static unsigned bounddeps   = 0;
 static unsigned boundprio   = 0;
 static unsigned no_prio     = 0;
+
+
+static inline TYPE negInverseModP(TYPE a, TYPE prime) {
+  // we do two turns of the extended Euclidian algorithm per
+  // loop. Usually the sign of x changes each time through the loop,
+  // but we avoid that by representing every other x as its negative,
+  // which is the value minusLastX. This way no negative values show
+  // up.
+  TYPE b           = prime;
+  TYPE minusLastX  = 0;
+  TYPE x           = 1;
+  while (1) {
+    // 1st turn
+    if (a == 1)
+      break;
+    const TYPE firstQuot  =   b / a;
+    b                     -=  firstQuot * a;
+    minusLastX            +=  firstQuot * x;
+
+    // 2nd turn
+    if (b == 1) {
+      x = prime - minusLastX;
+      break;
+    }
+    const TYPE secondQuot =   a / b;
+    a                     -=  secondQuot * b;
+    x                     +=  secondQuot * minusLastX;
+  }
+  return prime - x;
+}
 
 #define FPRINTF(ofile, fmt, ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ## __VA_ARGS__); }} while(0)
 
@@ -179,8 +209,6 @@ static int parse_args(int argc, char **argv)
 {
 	int i, opt, ret = 0;
   if(argc == 1) {
-    //fprintf(stderr, "This program needs arguments....\n\n");
-    //print_help(1);
   }
 
   while((opt = getopt(argc, argv, "hl:m:b:p:cd")) != -1) {
@@ -230,7 +258,7 @@ static void getri(void *descr[], int type) {
   unsigned tile_dim = STARPU_MATRIX_GET_NX(descr[0]);
   unsigned offset_a = STARPU_VECTOR_GET_OFFSET(descr[0]);
   unsigned ld       = STARPU_MATRIX_GET_LD(descr[0]);
- 
+
   offset_a  = (offset_a / sizeof(TYPE)) %  ld;
 
   for (i = 0; i < tile_dim-1; ++i) {  
@@ -476,14 +504,11 @@ static struct starpu_task *create_task(starpu_tag_t id)
 
 static struct starpu_task *create_task_11(starpu_data_handle_t dataA, unsigned k)
 {
-	// printf("task 11 k = %d TAG = %llx\n", k, (TAG11(k))); 
-
 	struct starpu_task *task = create_task(TAG11(k));
 
 	task->cl = &getri_cl;
 
 	/* which sub-data is manipulated ? */
-  //printf("GETRI: k %u\n", k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 
 	/* this is an important task */
@@ -503,14 +528,11 @@ static int create_task_12(starpu_data_handle_t dataA, unsigned k, unsigned j)
 {
 	int ret;
 
-	// printf("task 12 k,j = %d,%d TAG = %llx\n", k,j, TAG12(k,j)); 
-
 	struct starpu_task *task = create_task(TAG12(k, j));
 
 	task->cl = &gessm_cl;
 
 	/* which sub-data is manipulated ? */
-  //printf("GESSM: j %u - k %u\n",j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, k, k);
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j);
 
@@ -538,8 +560,6 @@ static int create_task_21(starpu_data_handle_t dataA, unsigned k, unsigned i)
 {
 	int ret;
 	struct starpu_task *task = create_task(TAG21(k, i));
-
-	// printf("task 21 k,i = %d,%d TAG = %llx\n", k,i, TAG21(k,i)); 
 
 	task->cl = &trsti_cl;
 
@@ -571,14 +591,11 @@ static int create_task_22(starpu_data_handle_t dataA, unsigned k, unsigned i, un
 {
 	int ret;
 
-/*	printf("task 22 k,i,j = %d,%d,%d TAG = %llx\n", k,i,j, TAG22(k,i,j)); */
-
 	struct starpu_task *task = create_task(TAG22(k, i, j));
 
 	task->cl = &ssssm_cl;
 
 	/* which sub-data is manipulated ? */
-  //printf("SSSSM: i %u - j %u - k %u\n",i,j,k);
 	task->handles[0] = starpu_data_get_sub_data(dataA, 2, i, k); /* produced by TAG21(k, i) */
 	task->handles[1] = starpu_data_get_sub_data(dataA, 2, k, j); /* produced by TAG12(k, j) */
 	task->handles[2] = starpu_data_get_sub_data(dataA, 2, i, j); /* produced by TAG22(k-1, i, j) */
@@ -683,6 +700,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 {
 	/* allocate matrix */
 	starpu_malloc((void **)&A, (size_t)l*m*sizeof(TYPE));
+  printf("size of A = %d\n",sizeof(A)/sizeof(TYPE));
 	STARPU_ASSERT(A);
 
   assert(l_init <= l);
@@ -691,7 +709,7 @@ static void init_matrix(unsigned l_init, unsigned m_init)
   srand(time(NULL));
 
 	/* initialize matrix content */
-	unsigned long i,j;
+	unsigned i,j;
 #if RANDOM_MAT == 1
 	for (j = 0; j < l_init; j++)
   {
