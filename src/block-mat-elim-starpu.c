@@ -238,9 +238,7 @@ static void getri(void *descr[], int type) {
 #if MODULUS == 1
       sub_a[i+j*ld] %=  prime;
 #endif
-    }
       for (k = i+1; k < tile_dim; ++k) {
-    for (j = i+1; j < tile_dim; ++j) {
         sub_a[k+j*ld] +=  (sub_a[k+i*ld] * sub_a[i+j*ld]);
 // don't do this if delayed modulus. we take care of this in the next round of
 // the outer for loop going over i
@@ -358,8 +356,6 @@ static void trsti(void *descr[], int type) {
 #if MODULUS == 1
       sub_b[i+j*ld] %=  prime;
 #endif
-    }
-    for (j = 0; j < tile_dim; ++j) {
       for (k = i+1; k < tile_dim; ++k) {
         sub_b[k+j*ld] +=  (sub_a[k+i*ld] * sub_b[i+j*ld]);
 #if MODULUS == 1 && DELAYED_MODULUS == 0
