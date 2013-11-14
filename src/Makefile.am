@@ -18,13 +18,14 @@ if ENABLE_KAAPIC
 bin_PROGRAMS += mult-kaapi
 bin_PROGRAMS += elim-kaapi
 endif
-if ENABLE_TBB
-bin_PROGRAMS += mult-tbb
-bin_PROGRAMS += elim-tbb
-endif
 if ENABLE_STARPU
 bin_PROGRAMS += mult-starpu
 bin_PROGRAMS += elim-starpu
+endif
+if ENABLE_TBB
+bin_PROGRAMS += mult-tbb
+bin_PROGRAMS += elim-tbb
+bin_PROGRAMS += block-elim-tbb
 endif
 
 mult_seq_CFLAGS= $(AM_CFLAGS)
@@ -42,7 +43,7 @@ elim_omp_SOURCES= 	\
 	mat-elim-omp.c
 
 if ENABLE_TBB
-mult_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x
+mult_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x -g3
 mult_tbb_LDADD= -ltbb
 mult_tbb_SOURCES= 	\
 	mat-mult-tbb.cpp
@@ -50,6 +51,10 @@ elim_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x
 elim_tbb_LDADD= -ltbb
 elim_tbb_SOURCES= 	\
 	mat-elim-tbb.cpp
+block_elim_tbb_CPPFLAGS= $(AM_CPPFLAGS) -std=c++0x
+block_elim_tbb_LDADD= -ltbb
+block_elim_tbb_SOURCES= 	\
+	block-mat-elim-tbb.cpp
 endif
 
 mult_pthrd_CFLAGS= $(AM_CFLAGS) -pthread
@@ -90,6 +95,7 @@ DISTCLEANFILES=	\
 	mult-pthrd		\
 	mult-starpu		\
 	elim-seq			\
+	block-elim-tbb\
 	elim-tbb			\
 	elim-omp			\
 	elim-kaapi		\
