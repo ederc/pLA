@@ -277,20 +277,31 @@ for (int i=0; i<tile_size; ++i) {
 }
 #endif
   printf("hier\n");
+      printf("ssssm task %p\n",this);
   // clean up reference counters of successors
-  if (offset_a==offset_b)
-    if (GETRI *t = getri_succ)
-      if (t->decrement_ref_count()==0)
+  if (offset_a==offset_b) {
+  printf("hier-1\n");
+    if (GETRI *t = getri_succ) {
+  printf("hier-2\n");
+      if (t->decrement_ref_count()==0) {
+        printf("hier auch?\n");
         spawn(*t);
-  else
-    if (offset_a<offset_b)
-      if (GESSM *t = gessm_succ)
+      }
+    }
+  } else {
+    if (offset_a<offset_b) {
+      if (GESSM *t = gessm_succ) {
         if (t->decrement_ref_count()==0)
           spawn(*t);
-    else
-      if (TRSTI *t = trsti_succ)
+      }
+    } else {
+  printf("hier-3\n");
+      if (TRSTI *t = trsti_succ) {
         if (t->decrement_ref_count()==0)
           spawn(*t);
+      }
+    }
+  }
   printf("hier2\n");
   return NULL;
 }
@@ -462,8 +473,83 @@ static int parse_args(int argc, char **argv)
 
 int computeGEP(TYPE *mat, TYPE boundary) {
 	/* create all the DAG nodes */
-	unsigned i,j,k,ld;
-  unsigned sum_getri, sum_gessm, sum_trsti, sum_ssssm;
+	unsigned i,j,k,ld, gessm_ctr = 0, trsti_ctr = 0, ssssm_ctr = 0;
+  unsigned sum_getri = 0, sum_gessm = 0, sum_trsti = 0, sum_ssssm = 0;
+  // stores the sssm index where to start for the big outer loop on the pivot
+  // blocks in order to track the dependencies of getri, gessm and trsti of
+  // (one round) older sssm.
+  unsigned ssssm_start_idx = 0;
+  for (i=0; i<boundary; ++i) {
+    sum_getri +=  1;
+    sum_gessm +=  mblocks-1-i;
+    sum_trsti +=  lblocks-1-i;
+    sum_ssssm +=  (mblocks-1-i)*(lblocks-1-i);
+  }
+  GETRI *first_task;
+  GETRI *getri_last_task;
+  GESSM *gessm_last_task;
+  TRSTI *trsti_last_task;
+
+  GETRI **getri_tasks = new GETRI *[sum_getri];
+  GESSM **gessm_tasks = new GESSM *[sum_gessm];
+  TRSTI **trsti_tasks = new TRSTI *[sum_trsti];
+  SSSSM **ssssm_tasks = new SSSSM *[sum_ssssm];
+
+  // generate all tasks
+  for (i=0; i<boundary; ++i) {
+    getri_tasks[i] = new(task::allocate_root()) GETRI(&mat[tile_size*(k+k*m)],k);
+    if (k!=0) {
+      ssssm_tasks[ssssm_start_idx]->getri_succ = getri_tasks[i];
+      getri_tasks[i]->set_ref_count(1);
+    } else {
+      getri_tasks[i]->set_ref_count(0);
+    }
+    for (j=i+1; j<mblocks; ++j) {
+      gessm_tasks[gessm_ctr] = new(task::allocate_root()) 
+        GESSM(&mat[tile_size*(i+i*m)], &mat[tile_size*(j+i*m)],i);
+      getri_tasks[i]->gessm_succ[j-i-1] = gessm_tasks[gessm_ctr];
+      if (i!=0) {
+        ssssm_tasks[ssssm_start_idx+j-i]->gessm_succ = gessm_tasks[gessm_ctr];
+        gessm_tasks[gessm_ctr]->set_ref_count(2);
+      } else {
+        gessm_tasks[gessm_ctr]->set_ref_count(1);
+      }
+      gessm_ctr++;
+    }
+    for (j=i+1; j<mblocks; ++j) {
+      trsti_tasks[trsti_ctr] = new(task::allocate_root()) 
+        TRSTI(&mat[tile_size*(i+i*m)], &mat[tile_size*(i+j*m)],i);
+      getri_tasks[i]->trsti_succ[j-i-1] = trsti_tasks[trsti_ctr];
+      if (i!=0) {
+        ssssm_tasks[ssssm_start_idx+(mblocks-i)*(j-i)]->trsti_succ = trsti_tasks[trsti_ctr];
+        trsti_tasks[trsti_ctr]->set_ref_count(2);
+      } else {
+        trsti_tasks[trsti_ctr]->set_ref_count(1);
+      }
+      trsti_ctr++;
+    }
+    ld  = mblocks-1-i;
+    for (j=i+1; j<lblocks; ++j) {
+      for (k=i+1; k<mblocks; ++k) {
+        ssssm_tasks[ssssm_ctr] = new(task::allocate_root()) 
+          SSSSM(&mat[tile_size*(i+j*m)], &mat[tile_size*(k+i*m)],
+                &mat[tile_size*(k+j*m)],i,j,k);
+        trsti_task[j-i-1]->ssssm_succ[k-i-1] = ssssm_task[ssssm_ctr];
+        gessm_task[k-i-1]->ssssm_succ[j-i-1] = ssssm_task[ssssm_ctr];
+        ssssm_tasks[ssssm_ctr]->set_ref_count(2);
+        ssssm_ctr++;
+      }
+    }
+    // recompute sssm_start_idx (recursively by old index)
+    if (i>1)
+      ssssm_start_idx +=  (mblocks-1-i+2)*(lblocks-1-i+2);
+  }
+
+  first_task  = getri_tasks[0];
+  for (i=0; i<boundary; ++) {
+    getri_tasks[i]->gessm_succ
+
+  /*
   GETRI *first_task;
   GETRI *getri_last_task;
   GESSM *gessm_last_task;
@@ -471,11 +557,23 @@ int computeGEP(TYPE *mat, TYPE boundary) {
   SSSSM **old_ssssm_task;
 
   for (k=0; k<boundary; ++k) {
+    if (k!=0) {
+      printf("3 ssssm task again %p\n",old_ssssm_task);
+      printf("3 ssssm task again %p\n\n",old_ssssm_task[0]);
+    }
     GETRI *getri_task = new(task::allocate_root()) 
       GETRI(&mat[tile_size*(k+k*m)],k);
-    if (k!=0)
+    if (k!=0) {
+      printf("4 ssssm task again %p\n",old_ssssm_task);
+      printf("4 ssssm task again %p\n",*old_ssssm_task);
+      printf("4 ssssm task again %p\n\n",old_ssssm_task[0]);
+    }
+    if (k!=0) {
+      printf("5 ssssm task again %p\n",old_ssssm_task);
+      printf("5 ssssm task again %p\n\n",old_ssssm_task[0]);
       old_ssssm_task[0]->getri_succ = getri_task;
       getri_task->set_ref_count(1);
+    }
     if (k==0)
       first_task  = getri_task;
 
@@ -506,6 +604,7 @@ int computeGEP(TYPE *mat, TYPE boundary) {
     }
 
     SSSSM *ssssm_task[(lblocks-1-k)*(mblocks-1-k)];
+    old_ssssm_task  = ssssm_task;
     ld  = mblocks-1-k;
     for (j=k+1; j<lblocks; ++j) {
       for (i=k+1; i<mblocks; ++i) {
@@ -515,15 +614,23 @@ int computeGEP(TYPE *mat, TYPE boundary) {
         trsti_task[j-k-1]->ssssm_succ[i-k-1] = ssssm_task[(i-k-1)+(j-k-1)*ld];
         gessm_task[i-k-1]->ssssm_succ[j-k-1] = ssssm_task[(i-k-1)+(j-k-1)*ld];
         ssssm_task[(i-k-1)+(j-k-1)*ld]->set_ref_count(2);
+        printf("sssm task generated: %p -- %d\n",ssssm_task[(i-k-1)+(j-k-1)*ld],(i-k-1)+(j-k-1)*ld);
       }
     }
-    old_ssssm_task  = ssssm_task;
+        printf("sssm task generated: %p\n",ssssm_task);
+        printf("sssm task generated: %p\n",ssssm_task[0]);
+        printf("old sssm task generated: %p\n",old_ssssm_task);
+        printf("old sssm task generated: %p\n",old_ssssm_task[0]);
     // store last tasks
     if (k==boundary-1) {
       getri_last_task = getri_task;
       gessm_last_task = gessm_task[mblocks-1-k];
       trsti_last_task = trsti_task[lblocks-1-k];
     }
+        printf("2 sssm task generated: %p\n",ssssm_task);
+        printf("2 sssm task generated: %p\n",ssssm_task[0]);
+        printf("2 old sssm task generated: %p\n",old_ssssm_task);
+        printf("2 old sssm task generated: %p\n",old_ssssm_task[0]);
   }
   // let tasks run
   if (mblocks>lblocks) {
@@ -541,9 +648,12 @@ int computeGEP(TYPE *mat, TYPE boundary) {
   if (mblocks==lblocks) {
     getri_last_task->increment_ref_count();
     getri_last_task->spawn_and_wait_for_all(*first_task);
+    printf("fertig?\n");
     getri_last_task->execute();
+    printf("fertig2?\n");
     task::destroy(*getri_last_task);
   }
+  */
   return 0;
     
 
