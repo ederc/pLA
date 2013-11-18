@@ -11,6 +11,41 @@
 
 #include "pla-config.h"
 
+//#include "mat-elim-tools.h"
+/*
+ * The algorithm might extend the matrix dimensions l resp. m in order to fit to
+ * the tile size given. If ZEROFILL is defined then the corresponding border of
+ * the matrix is filled with zeros and ones only on the diagonal.
+ * Right now we have no pivoting included thus we do not check for zeros. So we
+ * cannot fill with zeros only at the moment.
+ */
+#define ZEROFILL            1
+/*
+ * MODULUS and DELAYED_MODULUS need to be combined:
+ * 1. no modulus computation:       MODULUS 0, DELAYED_MODULUS 0/1
+ * 2. direct modulus computations:  MODULUS 1, DELAYED_MODULUS 0
+ * 3. delayed modulus computations: MODULUS 1, DELAYED_MODULUS 1
+ */
+#define MODULUS             1
+// !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
+#define DELAYED_MODULUS     1
+
+/*
+ * for debugging code. if RANDOM_MAT == 0 then a specific matrix is generated
+ * and thus values in the matrix of several runs of the code coincides.
+ */
+#define DEBUG               0
+#define RANDOM_MAT          1
+
+/*
+ * transpose B part in TRSTI to receive a better cache alignment in SSSSM
+ * -------------------------------------------------------------------------
+ * NOTE on 25/10/2013: transposing is usually slower since SSSSM has already
+ * good alignments even it not transposed
+ */
+#define TRANSPOSE           0
+
+
 typedef unsigned long TYPE;
 
 TYPE *neg_inv_piv;
@@ -93,6 +128,13 @@ task* GETRI::execute() {
 
   printf("getri -- %u\n",offset);
 
+  printf("\n-- GETRI --\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",a[j+i*m]);
+    }
+    printf("\n");
+  }
   for (int i = 0; i < tile_size-1; ++i) {  
 #if MODULUS == 1 && DELAYED_MODULUS == 1
     a[i+i*m] %=  prime;
@@ -106,7 +148,7 @@ task* GETRI::execute() {
 #endif
     for (int j = i+1; j < tile_size; ++j) {
       // multiply by corresponding coeff
-      a[i+j*m] *= neg_inv_piv[i];
+      a[i+j*m] *= neg_inv_piv[i+offset];
 #if MODULUS == 1
       a[i+j*m] %=  prime;
 #endif
@@ -123,6 +165,7 @@ task* GETRI::execute() {
 // if we delay modulus this last element on the diagonal is not reduced w.r.t.
 // prime in the above for loop going over i till
 #if MODULUS == 1 && DELAYED_MODULUS == 1
+  printf("last entry before mod p: %u\n",a[(tile_size-1)+(tile_size-1)*m]);
   a[(tile_size-1)+(tile_size-1)*m] %=  prime;
   neg_inv_piv[tile_size-1+offset] = negInverseModP(a[(tile_size-1)+(tile_size-1)*m], prime);
 #endif
@@ -151,8 +194,22 @@ task* GESSM::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
   printf("gessm -- %u\n",offset);
+  printf("a\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",a[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("\nb\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",b[j+i*m]);
+    }
+    printf("\n");
+  }
 
-  for (int i = 0; i < tile_size - 1; ++i) {  
+  for (int i = 0; i < tile_size-1; ++i) {  
     // reduce entries in this line mod prime
     // no other task will work on them anymore
 #if MODULUS == 1 && DELAYED_MODULUS == 1
@@ -176,6 +233,13 @@ task* GESSM::execute() {
     b[k+(tile_size-1)*m] %=  prime;
   }
 #endif
+  printf("\nb -- done\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",b[j+i*m]);
+    }
+    printf("\n");
+  }
 
   // clean up reference counters of successors
   for (int i=0; i<lblocks-offset-1; ++i)
@@ -197,6 +261,21 @@ task* TRSTI::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
   printf("trsti -- %u\n",offset);
+  printf("a\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",a[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("\nb\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",b[j+i*m]);
+    }
+    printf("\n");
+  }
+
 
   for (int i = 0; i < tile_size; ++i) {
     // compute inverse
@@ -248,34 +327,51 @@ task* SSSSM::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
   printf("ssssm -- %u | %u | %u\n",offset,offset_a,offset_b);
+  printf("a\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",a[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("b\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",b[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("c\n");
+  for (int i=0; i<tile_size; ++i) {
+    for (int j=0; j<tile_size; ++j) {
+      printf("%u\t",c[j+i*m]);
+    }
+    printf("\n");
+  }
 
-for (int i = 0; i < tile_size; ++i) {
   // compute inverse
   for (int j = 0; j < tile_size; ++j) {
-    // multiply by corresponding coeff
-    b[i+j*m] *=  neg_inv_piv[i+offset];
-#if MODULUS == 1
-    b[i+j*m] %=  prime;
-#endif
-    for (int k = i+1; k < tile_size; ++k) {
-      b[k+j*m] +=  (a[k+i*m] * b[i+j*m]);
-#if MODULUS == 1 && DELAYED_MODULUS == 0
-      b[k+j*m] %=  prime;
-#endif
-    }
-  }
-}  
+    for (int i = 0; i < tile_size; ++i) {  
+      // multiply by corresponding coeff
+      for (int k = 0; k < tile_size; ++k) {
 #if TRANSPOSE
-// transpose b
-TYPE temp  = 0;
-for (int i=0; i<tile_size; ++i) {
-  for (int j=i+1; j<tile_size; ++j) {
-    temp          = b[i+j*m];
-    b[i+j*m] = b[j+i*m];
-    b[j+i*m] = temp;
-  }
-}
+        c[k+j*m] +=  (a[j+i*m] * b[k+i*m]) ;
+#else
+        c[k+j*m] +=  (a[i+j*m] * b[k+i*m]) ;
 #endif
+
+/*
+ * This is the only place where we do not need to compute an immediate modulus
+ * If we do not compute it here, we need to add some modulus computations in
+ * GETRI, GESSM and TRSTI (macro DELAYED_MODULUS)
+ */
+#if MODULUS == 1 && DELAYED_MODULUS == 0
+        c[k+j*m] %=  prime;
+#endif
+      }
+    }
+  }  
+
   printf("hier\n");
       printf("ssssm task %p\n",this);
   // clean up reference counters of successors
@@ -294,9 +390,17 @@ for (int i=0; i<tile_size; ++i) {
         if (t->decrement_ref_count()==0)
           spawn(*t);
       }
+      if (SSSSM *t = ssssm_succ) {
+        if (t->decrement_ref_count()==0)
+          spawn(*t);
+      }
     } else {
   printf("hier-3\n");
       if (TRSTI *t = trsti_succ) {
+        if (t->decrement_ref_count()==0)
+          spawn(*t);
+      }
+      if (SSSSM *t = ssssm_succ) {
         if (t->decrement_ref_count()==0)
           spawn(*t);
       }
@@ -306,48 +410,11 @@ for (int i=0; i<tile_size; ++i) {
   return NULL;
 }
 
-//#include "mat-elim-tools.h"
-/*
- * The algorithm might extend the matrix dimensions l resp. m in order to fit to
- * the tile size given. If ZEROFILL is defined then the corresponding border of
- * the matrix is filled with zeros and ones only on the diagonal.
- * Right now we have no pivoting included thus we do not check for zeros. So we
- * cannot fill with zeros only at the moment.
- */
-#define ZEROFILL            1
-/*
- * MODULUS and DELAYED_MODULUS need to be combined:
- * 1. no modulus computation:       MODULUS 0, DELAYED_MODULUS 0/1
- * 2. direct modulus computations:  MODULUS 1, DELAYED_MODULUS 0
- * 3. delayed modulus computations: MODULUS 1, DELAYED_MODULUS 1
- */
-#define MODULUS             1
-// !! NOTE AGAIN: DELAYED_MODULUS without MODULUS does nothing !!
-#define DELAYED_MODULUS     1
-
-/*
- * for debugging code. if RANDOM_MAT == 0 then a specific matrix is generated
- * and thus values in the matrix of several runs of the code coincides.
- */
-#define DEBUG               0
-#define RANDOM_MAT          1
-
-/*
- * transpose B part in TRSTI to receive a better cache alignment in SSSSM
- * -------------------------------------------------------------------------
- * NOTE on 25/10/2013: transposing is usually slower since SSSSM has already
- * good alignments even it not transposed
- */
-#define TRANSPOSE           0
-
-
 // multiplies A*B^T and stores it in *this
 void elim(TYPE *cc, unsigned l, unsigned m) {
   unsigned i, j, k;
-
   //C.resize(l*m);
   unsigned sum = 0;
- 
   unsigned boundary = (l > m) ? m : l;
   unsigned inv, mult;
 
@@ -359,6 +426,7 @@ void elim(TYPE *cc, unsigned l, unsigned m) {
 
   for (i = 0; i < boundary; ++i) {
     inv = negInverseModP(cc[i+i*m], prime);
+    //printf("inv %u\n",inv);
     for (j = i+1; j < l; ++j) {
       mult = cc[i+j*m] * inv;
       mult %= prime;
@@ -368,6 +436,13 @@ void elim(TYPE *cc, unsigned l, unsigned m) {
       }
     }
   }
+  for (i=0; i<l; ++i) {
+    for (j=0; j<m; ++j) {
+      printf("%u\t",cc[j+i*m]);
+    }
+    printf("\n");
+  }
+ 
   gettimeofday(&stop, NULL);
   cStop = clock();
   float epsilon = 0.0000000001;
@@ -475,6 +550,7 @@ int computeGEP(TYPE *mat, TYPE boundary) {
 	/* create all the DAG nodes */
 	unsigned i,j,k,ld, gessm_ctr = 0, trsti_ctr = 0, ssssm_ctr = 0;
   unsigned sum_getri = 0, sum_gessm = 0, sum_trsti = 0, sum_ssssm = 0;
+  unsigned ssssm_back = 0;
   // stores the sssm index where to start for the big outer loop on the pivot
   // blocks in order to track the dependencies of getri, gessm and trsti of
   // (one round) older sssm.
@@ -497,8 +573,8 @@ int computeGEP(TYPE *mat, TYPE boundary) {
 
   // generate all tasks
   for (i=0; i<boundary; ++i) {
-    getri_tasks[i] = new(task::allocate_root()) GETRI(&mat[tile_size*(k+k*m)],k);
-    if (k!=0) {
+    getri_tasks[i] = new(task::allocate_root()) GETRI(&mat[tile_size*(i+i*m)],i);
+    if (i!=0) {
       ssssm_tasks[ssssm_start_idx]->getri_succ = getri_tasks[i];
       getri_tasks[i]->set_ref_count(1);
     } else {
@@ -534,9 +610,15 @@ int computeGEP(TYPE *mat, TYPE boundary) {
         ssssm_tasks[ssssm_ctr] = new(task::allocate_root()) 
           SSSSM(&mat[tile_size*(i+j*m)], &mat[tile_size*(k+i*m)],
                 &mat[tile_size*(k+j*m)],i,j,k);
-        trsti_task[j-i-1]->ssssm_succ[k-i-1] = ssssm_task[ssssm_ctr];
-        gessm_task[k-i-1]->ssssm_succ[j-i-1] = ssssm_task[ssssm_ctr];
-        ssssm_tasks[ssssm_ctr]->set_ref_count(2);
+        trsti_tasks[j-i-1]->ssssm_succ[k-i-1] = ssssm_tasks[ssssm_ctr];
+        gessm_tasks[k-i-1]->ssssm_succ[j-i-1] = ssssm_tasks[ssssm_ctr];
+        if (i>0) {
+          ssssm_back  = ssssm_ctr - (mblocks-i)*(lblocks-i-1)-(j-i);
+          ssssm_tasks[ssssm_back]->ssssm_succ  = ssssm_tasks[ssssm_ctr];
+          ssssm_tasks[ssssm_ctr]->set_ref_count(3);
+        } else {
+          ssssm_tasks[ssssm_ctr]->set_ref_count(2);
+        }
         ssssm_ctr++;
       }
     }
@@ -546,8 +628,26 @@ int computeGEP(TYPE *mat, TYPE boundary) {
   }
 
   first_task  = getri_tasks[0];
-  for (i=0; i<boundary; ++) {
-    getri_tasks[i]->gessm_succ
+
+  // let tasks run
+  if (mblocks>lblocks) {
+    gessm_tasks[sum_gessm-1]->increment_ref_count();
+    gessm_tasks[sum_gessm-1]->spawn_and_wait_for_all(*first_task);
+    gessm_tasks[sum_gessm-1]->execute();
+    task::destroy(*gessm_tasks[sum_gessm-1]);
+  }
+  if (mblocks<lblocks) {
+    trsti_tasks[sum_trsti-1]->increment_ref_count();
+    trsti_tasks[sum_trsti-1]->spawn_and_wait_for_all(*first_task);
+    trsti_tasks[sum_trsti-1]->execute();
+    task::destroy(*trsti_tasks[sum_trsti-1]);
+  }
+  if (mblocks==lblocks) {
+    getri_tasks[sum_getri-1]->increment_ref_count();
+    getri_tasks[sum_getri-1]->spawn_and_wait_for_all(*first_task);
+    getri_tasks[sum_getri-1]->execute();
+    task::destroy(*getri_tasks[sum_getri-1]);
+  }
 
   /*
   GETRI *first_task;
@@ -746,6 +846,21 @@ static void save_matrix(void)
 	A_saved = (TYPE*) malloc((size_t)l*m*sizeof(TYPE));
 
 	memcpy(A_saved, A, (size_t)l*m*sizeof(TYPE));
+  int i, j;
+  printf("-- A --\n");
+  for (i=0; i<l; ++i) {
+    for (j=0; j<m; ++j) {
+      printf("%u\t",A[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("\n-- A_saved --\n");
+  for (i=0; i<l; ++i) {
+    for (j=0; j<m; ++j) {
+      printf("%u\t",A_saved[j+i*m]);
+    }
+    printf("\n");
+  }
 }
 
 int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
@@ -760,8 +875,22 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   boundary   = (lblocks>mblocks) ? mblocks : lblocks;
   gettimeofday(&start, NULL);
   cStart  = clock();
-
+  int i,j;
 	int ret = computeGEP(matA, boundary);
+  printf("\n-- matA done --\n");
+  for (i=0; i<l; ++i) {
+    for (j=0; j<m; ++j) {
+      printf("%u\t",matA[j+i*m]);
+    }
+    printf("\n");
+  }
+  printf("\n-- A_saved 2 --\n");
+  for (i=0; i<l; ++i) {
+    for (j=0; j<m; ++j) {
+      printf("%u\t",A_saved[j+i*m]);
+    }
+    printf("\n");
+  }
 
   gettimeofday(&stop, NULL);
   cStop = clock();

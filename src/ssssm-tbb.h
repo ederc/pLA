@@ -26,11 +26,12 @@ public:
   TYPE offset;
   TYPE offset_a;
   TYPE offset_b;
-  // successors, GETRI, GESSM, TRSTI
+  // successors, GETRI, GESSM, TRSTI, SSSSM
   // depending on offset_a and offset_b
   GETRI *getri_succ;
   GESSM *gessm_succ;
   TRSTI *trsti_succ;
+  SSSSM *ssssm_succ;
 
   SSSSM(TYPE *a_, TYPE *b_, TYPE *c_, TYPE offset_, TYPE offset_a_, TYPE offset_b_);
 
