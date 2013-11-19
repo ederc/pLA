@@ -51,6 +51,7 @@ typedef unsigned long TYPE;
 TYPE *neg_inv_piv;
 TYPE *A, *A_saved;
 static TYPE prime           = 65521;
+static unsigned thrds       = 1;
 static unsigned l_init      = 4096;
 static unsigned m_init      = 4096;
 static unsigned l           = 4096;
@@ -503,6 +504,8 @@ void print_help(int exval) {
   printf("                 default: 4096\n");
   printf("       -p        field characteristic\n");
   printf("                 default: 65521\n"); 
+  printf("       -t        number of threads\n");
+  printf("                 default: 1\n");
 
   exit(exval);
 }
@@ -513,7 +516,7 @@ static int parse_args(int argc, char **argv)
   if(argc == 1) {
   }
 
-  while((opt = getopt(argc, argv, "hl:m:b:p:cd")) != -1) {
+  while((opt = getopt(argc, argv, "hl:m:b:p:t:cd")) != -1) {
     switch(opt) {
       case 'h':
         print_help(0);
@@ -537,6 +540,9 @@ static int parse_args(int argc, char **argv)
       case 'p': 
         prime = atoi(strdup(optarg));
         break;
+      case 't':
+        thrds = atoi(strdup(optarg));
+        break;
     }
   }
   return ret;
@@ -552,6 +558,12 @@ int computeGEP(TYPE *mat, TYPE boundary) {
   // (one round) older sssm.
   unsigned getri_old_idx = 0, gessm_old_idx = 0, trsti_old_idx = 0, ssssm_old_idx = 0;
   unsigned ssssm_start_idx = 0;
+
+  // set threads to be used in Intel TBB spawn process
+  if (thrds<1)
+    thrds = task_scheduler_init::default_num_threads();
+  task_scheduler_init init(thrds);
+
   for (i=0; i<boundary; ++i) {
     sum_getri +=  1;
     sum_gessm +=  mblocks-1-i;
@@ -682,111 +694,6 @@ int computeGEP(TYPE *mat, TYPE boundary) {
     task::destroy(*getri_tasks[sum_getri-1]);
   }
 
-  /*
-  GETRI *first_task;
-  GETRI *getri_last_task;
-  GESSM *gessm_last_task;
-  TRSTI *trsti_last_task;
-  SSSSM **old_ssssm_task;
-
-  for (k=0; k<boundary; ++k) {
-    if (k!=0) {
-      printf("3 ssssm task again %p\n",old_ssssm_task);
-      printf("3 ssssm task again %p\n\n",old_ssssm_task[0]);
-    }
-    GETRI *getri_task = new(task::allocate_root()) 
-      GETRI(&mat[tile_size*(k+k*m)],k);
-    if (k!=0) {
-      printf("4 ssssm task again %p\n",old_ssssm_task);
-      printf("4 ssssm task again %p\n",*old_ssssm_task);
-      printf("4 ssssm task again %p\n\n",old_ssssm_task[0]);
-    }
-    if (k!=0) {
-      printf("5 ssssm task again %p\n",old_ssssm_task);
-      printf("5 ssssm task again %p\n\n",old_ssssm_task[0]);
-      old_ssssm_task[0]->getri_succ = getri_task;
-      getri_task->set_ref_count(1);
-    }
-    if (k==0)
-      first_task  = getri_task;
-
-    GESSM *gessm_task[mblocks-1-k];
-    for (j=k+1; j<mblocks; ++j) {
-      gessm_task[j-k-1] = new(task::allocate_root()) 
-        GESSM(&mat[tile_size*(k+k*m)], &mat[tile_size*(j+k*m)],k);
-      getri_task->gessm_succ[j-k-1] = gessm_task[j-k-1];
-      if (k!=0) {
-        old_ssssm_task[(j-k-1)+0*ld]->gessm_succ = gessm_task[j-k-1];
-        gessm_task[j-k-1]->set_ref_count(2);
-      } else {
-        gessm_task[j-k-1]->set_ref_count(1);
-      }
-    }
-
-    TRSTI *trsti_task[lblocks-1-k];
-    for (j=k+1; j<lblocks; ++j) {
-      trsti_task[j-k-1] = new(task::allocate_root()) 
-        TRSTI(&mat[tile_size*(k+k*m)], &mat[tile_size*(k+j*m)],k);
-      getri_task->trsti_succ[j-k-1] = trsti_task[j-k-1];
-      if (k!=0) {
-        old_ssssm_task[0+(j-k-1)*ld]->trsti_succ = trsti_task[j-k-1];
-        trsti_task[j-k-1]->set_ref_count(2);
-      } else {
-        trsti_task[j-k-1]->set_ref_count(1);
-      }
-    }
-
-    SSSSM *ssssm_task[(lblocks-1-k)*(mblocks-1-k)];
-    old_ssssm_task  = ssssm_task;
-    ld  = mblocks-1-k;
-    for (j=k+1; j<lblocks; ++j) {
-      for (i=k+1; i<mblocks; ++i) {
-        ssssm_task[(i-k-1)+(j-k-1)*ld] = new(task::allocate_root()) 
-          SSSSM(&mat[tile_size*(k+j*m)], &mat[tile_size*(i+k*m)],
-                &mat[tile_size*(i+j*m)],k,j,i);
-        trsti_task[j-k-1]->ssssm_succ[i-k-1] = ssssm_task[(i-k-1)+(j-k-1)*ld];
-        gessm_task[i-k-1]->ssssm_succ[j-k-1] = ssssm_task[(i-k-1)+(j-k-1)*ld];
-        ssssm_task[(i-k-1)+(j-k-1)*ld]->set_ref_count(2);
-        printf("sssm task generated: %p -- %d\n",ssssm_task[(i-k-1)+(j-k-1)*ld],(i-k-1)+(j-k-1)*ld);
-      }
-    }
-        printf("sssm task generated: %p\n",ssssm_task);
-        printf("sssm task generated: %p\n",ssssm_task[0]);
-        printf("old sssm task generated: %p\n",old_ssssm_task);
-        printf("old sssm task generated: %p\n",old_ssssm_task[0]);
-    // store last tasks
-    if (k==boundary-1) {
-      getri_last_task = getri_task;
-      gessm_last_task = gessm_task[mblocks-1-k];
-      trsti_last_task = trsti_task[lblocks-1-k];
-    }
-        printf("2 sssm task generated: %p\n",ssssm_task);
-        printf("2 sssm task generated: %p\n",ssssm_task[0]);
-        printf("2 old sssm task generated: %p\n",old_ssssm_task);
-        printf("2 old sssm task generated: %p\n",old_ssssm_task[0]);
-  }
-  // let tasks run
-  if (mblocks>lblocks) {
-    gessm_last_task->increment_ref_count();
-    gessm_last_task->spawn_and_wait_for_all(*first_task);
-    gessm_last_task->execute();
-    task::destroy(*gessm_last_task);
-  }
-  if (mblocks<lblocks) {
-    trsti_last_task->increment_ref_count();
-    trsti_last_task->spawn_and_wait_for_all(*first_task);
-    trsti_last_task->execute();
-    task::destroy(*trsti_last_task);
-  }
-  if (mblocks==lblocks) {
-    getri_last_task->increment_ref_count();
-    getri_last_task->spawn_and_wait_for_all(*first_task);
-    printf("fertig?\n");
-    getri_last_task->execute();
-    printf("fertig2?\n");
-    task::destroy(*getri_last_task);
-  }
-  */
   return 0;
     
 
@@ -937,7 +844,7 @@ int lu_decomposition(TYPE *matA, unsigned l, unsigned m, unsigned tile_size)
   printf("# row blocks:         %d\n",lblocks);
   printf("# column blocks:      %d\n",mblocks);
   printf("-------------------------------------------------------\n");
-  //printf("#Threads:             %d\n", number_threads);
+  printf("# Threads:            %d\n", thrds);
   printf("- - - - - - - - - - - - - - - - - - - - - - - - - - - -\n");
   printf("Real time:            %.3f sec\n", realtime);
   printf("CPU time:             %.3f sec\n", cputime);
