@@ -700,7 +700,6 @@ static void init_matrix(unsigned l_init, unsigned m_init)
 {
 	/* allocate matrix */
 	starpu_malloc((void **)&A, (size_t)l*m*sizeof(TYPE));
-  printf("size of A = %d\n",sizeof(A)/sizeof(TYPE));
 	STARPU_ASSERT(A);
 
   assert(l_init <= l);
