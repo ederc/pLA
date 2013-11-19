@@ -164,7 +164,7 @@ task* GETRI::execute() {
 #endif
 
   // clean up reference counters of successors
-  for (int i=0; i<lblocks-offset-1; ++i)
+  for (int i=0; i<mblocks-offset-1; ++i) {
     if (GESSM *t = gessm_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
@@ -176,7 +176,8 @@ task* GETRI::execute() {
         printf("GETRI - GESSM succ ref %d\n",t->ref_count());
 #endif
       }
-  for (int i=0; i<mblocks-offset-1; ++i)
+  }
+  for (int i=0; i<lblocks-offset-1; ++i)
     if (TRSTI *t = trsti_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
@@ -623,7 +624,7 @@ int computeGEP(TYPE *mat, TYPE boundary) {
       }
       gessm_ctr++;
     }
-    for (j=i+1; j<mblocks; ++j) {
+    for (j=i+1; j<lblocks; ++j) {
       trsti_tasks[trsti_ctr] = new(task::allocate_root()) 
         TRSTI(&mat[tile_size*(i+i*m)], &mat[tile_size*(i+j*m)],i);
 #if DEBUG
