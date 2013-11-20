@@ -1,5 +1,9 @@
 #include <math.h>
 #include <tbb/tbb.h>
+#include "tbb/task_scheduler_init.h"
+#include "tbb/atomic.h"
+#include "tbb/tbb_thread.h"
+#include "tbb/compat/thread"
 #include <float.h>
 #include <getopt.h>
 #include <stdlib.h>
@@ -127,14 +131,21 @@ GETRI::GETRI(TYPE *a_, TYPE offset_) {
 task* GETRI::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 #if DEBUG
-  printf("getri -- %u\n",offset);
+  printf("getri %p -- %u << >>\n",this,offset);
+  printf("\n -A -- GETRI IN - \n");
+  for (int i=0; i<l; ++i) {
+    for (int j=0; j<m; ++j) {
+      printf("%u\t",A[j+i*m]);
+    }
+    printf("\n");
+  }
 #endif
   for (int i = 0; i < tile_size-1; ++i) {  
 #if MODULUS == 1 && DELAYED_MODULUS == 1
     a[i+i*m] %=  prime;
 #endif
     // compute inverse
-    neg_inv_piv[i+offset] = negInverseModP(a[i+i*m], prime);
+    neg_inv_piv[i+offset*tile_size] = negInverseModP(a[i+i*m], prime);
 #if MODULUS == 1 && DELAYED_MODULUS == 1
     for (int j = i+1; j < tile_size; ++j) {
       a[j+i*m] %=  prime;
@@ -142,7 +153,7 @@ task* GETRI::execute() {
 #endif
     for (int j = i+1; j < tile_size; ++j) {
       // multiply by corresponding coeff
-      a[i+j*m] *= neg_inv_piv[i+offset];
+      a[i+j*m] *= neg_inv_piv[i+offset*tile_size];
 #if MODULUS == 1
       a[i+j*m] %=  prime;
 #endif
@@ -160,7 +171,7 @@ task* GETRI::execute() {
 // prime in the above for loop going over i till
 #if MODULUS == 1 && DELAYED_MODULUS == 1
   a[(tile_size-1)+(tile_size-1)*m] %=  prime;
-  neg_inv_piv[tile_size-1+offset] = negInverseModP(a[(tile_size-1)+(tile_size-1)*m], prime);
+  neg_inv_piv[tile_size-1+offset*tile_size] = negInverseModP(a[(tile_size-1)+(tile_size-1)*m], prime);
 #endif
 
   // clean up reference counters of successors
@@ -168,12 +179,12 @@ task* GETRI::execute() {
     if (GESSM *t = gessm_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
-        printf("GETRI - spawn GESSM succ%d -- %p\n",i,t);
+        printf("GETRI %p - spawn GESSM succ%d -- %p\n",this,i,t);
 #endif
         spawn(*t);
       } else {
 #if DEBUG
-        printf("GETRI - GESSM succ ref %d\n",t->ref_count());
+        printf("GETRI %p - GESSM succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
       }
   }
@@ -181,12 +192,12 @@ task* GETRI::execute() {
     if (TRSTI *t = trsti_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
-        printf("GETRI - spawn TRSTI succ%d -- %p\n",i,t);
+        printf("GETRI %p - spawn TRSTI succ%d -- %p\n",this,i,t);
 #endif
         spawn(*t);
       } else {
 #if DEBUG
-        printf("GETRI - TRSTI succ ref %d\n",t->ref_count());
+        printf("GETRI %p - TRSTI succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
       } 
   return NULL;
@@ -204,7 +215,7 @@ task* GESSM::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
 #if DEBUG
-  printf("gessm -- %u\n",offset);
+  printf("gessm %p -- %u\n",this,offset);
 #endif
 
   for (int i = 0; i < tile_size-1; ++i) {  
@@ -242,16 +253,25 @@ task* GESSM::execute() {
   */
 
   // clean up reference counters of successors
+  /*
+  printf("\n -A- \n");
+  for (int i=0; i<l; ++i) {
+    for (int j=0; j<m; ++j) {
+      printf("%u\t",A[j+i*m]);
+    }
+    printf("\n");
+  }
+  */
   for (int i=0; i<lblocks-offset-1; ++i)
     if (SSSSM *t = ssssm_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
-        printf("GESSM - spawn SSSSM succ%d\n",i);
+        printf("GESSM %p - spawn SSSSM succ%d -- %p\n",this,i,t);
 #endif
         spawn(*t);
       } else {
 #if DEBUG
-        printf("GESSM - SSSSM succ ref %d -- %p\n",t->ref_count(),t);
+        printf("GESSM %p - SSSSM succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
       } 
   return NULL;
@@ -269,14 +289,21 @@ task* TRSTI::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
 #if DEBUG
-  printf("trsti -- %u\n",offset);
+  printf("trsti %p -- %u\n",this,offset);
+  printf("\n -A -- TRSTI IN - \n");
+  for (int i=0; i<l; ++i) {
+    for (int j=0; j<m; ++j) {
+      printf("%u\t",A[j+i*m]);
+    }
+    printf("\n");
+  }
 #endif
 
   for (int i = 0; i < tile_size; ++i) {
     // compute inverse
     for (int j = 0; j < tile_size; ++j) {
       // multiply by corresponding coeff
-      b[i+j*m] *=  neg_inv_piv[i+offset];
+      b[i+j*m] *=  neg_inv_piv[i+offset*tile_size];
 #if MODULUS == 1
       b[i+j*m] %=  prime;
 #endif
@@ -288,31 +315,20 @@ task* TRSTI::execute() {
       }
     }
   }  
-#if TRANSPOSE
-  // transpose b
-  TYPE temp  = 0;
-  for (int i=0; i<tile_size; ++i) {
-    for (int j=i+1; j<tile_size; ++j) {
-      temp          = b[i+j*m];
-      b[i+j*m] = b[j+i*m];
-      b[j+i*m] = temp;
-    }
-  }
-#endif
-
   // clean up reference counters of successors
-  for (int i=0; i<mblocks-offset-1; ++i)
+  for (int i=0; i<mblocks-offset-1; ++i) {
     if (SSSSM *t = ssssm_succ[i])
       if (t->decrement_ref_count()==0) {
 #if DEBUG
-        printf("TRSTI - spawn SSSSM succ%d\n",i);
+        printf("TRSTI %p - spawn SSSSM succ %d -- %p\n",this,i,t);
 #endif
         spawn(*t);
       } else {
 #if DEBUG
-        printf("TRSTI - SSSSM succ ref %d -- %p\n",t->ref_count(),t);
+        printf("TRSTI %p - SSSSM succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
       } 
+  }
   return NULL;
 }
 
@@ -330,7 +346,7 @@ task* SSSSM::execute() {
   __TBB_ASSERT(ref_count()==0, NULL);
 
 #if DEBUG
-  printf("ssssm -- %u | %u | %u\n",offset,offset_a,offset_b);
+  printf("ssssm %p -- %u | %u | %u -- thread \n",this,offset,offset_a,offset_b);
 #endif
   // compute inverse
   for (int j = 0; j < tile_size; ++j) {
@@ -354,52 +370,60 @@ task* SSSSM::execute() {
       }
     }
   }  
-
+  /*
+  printf("\n -A- \n");
+  for (int i=0; i<l; ++i) {
+    for (int j=0; j<m; ++j) {
+      printf("%u\t",A[j+i*m]);
+    }
+    printf("\n");
+  }
+  */
   if (GETRI *t = getri_succ) {
     if (t->decrement_ref_count()==0) {
 #if DEBUG
-      printf("spawn GETRI -- %p\n",t);
+      printf("SSSSM %p - spawn GETRI -- %p\n",this,t);
 #endif
       spawn(*t);
     } else {
 #if DEBUG
-      printf("SSSSM - GETRI succ ref %d -- %p\n",t->ref_count(),t);
+      printf("SSSSM %p - GETRI succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
     } 
   }
   if (GESSM *t = gessm_succ) {
     if (t->decrement_ref_count()==0) {
 #if DEBUG
-      printf("spawn GESSM\n");
+      printf("SSSSM %p - spawn GESSM\n",this);
 #endif
       spawn(*t);
     } else {
 #if DEBUG
-      printf("SSSSM - GESSM succ ref %d\n",t->ref_count());
+      printf("SSSSM %p - GESSM succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
     } 
   }
   if (TRSTI *t = trsti_succ) {
     if (t->decrement_ref_count()==0) {
 #if DEBUG
-      printf("spawn TRSTI\n");
+      printf("SSSSM - spawn TRSTI\n",this);
 #endif
       spawn(*t);
     } else {
 #if DEBUG
-      printf("SSSSM - TRSTI succ ref %d\n",t->ref_count());
+      printf("SSSSM %p - TRSTI succ ref %d -- %p\n",this,t->ref_count(),t);
 #endif
     } 
   }
   if (SSSSM *t = ssssm_succ) {
     if (t->decrement_ref_count()==0) {
 #if DEBUG
-      printf("spawn SSSSM\n");
+      printf("SSSSM - spawn SSSSM\n",this);
 #endif
       spawn(*t);
     } else {
 #if DEBUG
-      printf("SSSSM - SSSSM succ ref %d -- %p\n",t->ref_count(), t);
+      printf("SSSSM %p - SSSSM succ ref %d -- %p\n",this,t->ref_count(), t);
 #endif
     } 
   }
@@ -618,6 +642,9 @@ int computeGEP(TYPE *mat, TYPE boundary) {
 #endif
       if (i!=0) {
         ssssm_tasks[ssssm_start_idx+j-i]->gessm_succ = gessm_tasks[gessm_ctr];
+#if DEBUG
+        printf("gessm count %p -- %d <-- ssssm %d\n",gessm_tasks[gessm_ctr],trsti_ctr,ssssm_start_idx+j-i);
+#endif
         gessm_tasks[gessm_ctr]->set_ref_count(2);
       } else {
         gessm_tasks[gessm_ctr]->set_ref_count(1);
@@ -633,6 +660,9 @@ int computeGEP(TYPE *mat, TYPE boundary) {
       getri_tasks[i]->trsti_succ[j-i-1] = trsti_tasks[trsti_ctr];
       if (i!=0) {
         ssssm_tasks[ssssm_start_idx+(mblocks-i)*(j-i)]->trsti_succ = trsti_tasks[trsti_ctr];
+#if DEBUG
+        printf("trsti count %p -- %d <-- ssssm %d\n",trsti_tasks[trsti_ctr],trsti_ctr,ssssm_start_idx+(mblocks-i)*(j-i));
+#endif
         trsti_tasks[trsti_ctr]->set_ref_count(2);
       } else {
         trsti_tasks[trsti_ctr]->set_ref_count(1);
