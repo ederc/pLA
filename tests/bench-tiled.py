@@ -119,7 +119,7 @@ for i in range(0,len(methods)):
 folder_name = "test-"+algorithm_string[0]
 if int(args.inc) != -1:
   folder_name = folder_name + algorithm_inc[0]
-folder_name = folder_name + args.rowsa + '-' + args.colsa
+folder_name = folder_name + args.rowsa + '-' + args.colsa + '-' + args.blocksize
 folder_name = folder_name + '--' + date_string
 
 if not os.path.exists(folder_name):
@@ -269,7 +269,6 @@ if args.plot:
   for l in lines:
     for i in range(0,len(methods)):  
       if l.find(methods[i]) != -1:
-        print(methods[i])
         tmp = i
     if l.find('Real time:') != -1:
       time_series[tmp].append(\
