@@ -68,7 +68,6 @@ static unsigned bound       = 0;
 static unsigned bounddeps   = 0;
 static unsigned boundprio   = 0;
 static unsigned no_prio     = 0;
-static unsigned keep_on     = 1;
 
 static inline TYPE negInverseModP(TYPE a, TYPE prime) {
   // we do two turns of the extended Euclidian algorithm per
@@ -99,12 +98,6 @@ static inline TYPE negInverseModP(TYPE a, TYPE prime) {
   return prime - x;
 }
 
-
-// signal handler
-void catch_floating_point_exception(int sig) {
-  keep_on = 1;
-  signal(sig, catch_floating_point_exception);
-}
 
 /*****************************************************************
  * class definitions
@@ -657,23 +650,18 @@ int main(int argc, char *argv[]) {
     mblocks++;
     m +=  tile_size - (m % tile_size);
   }
-  
-  while (keep_on) {
-    // if a floating point exception happens the signal handler resets keep_on
-    // to 1
-    keep_on = 0;
-    signal (SIGFPE, catch_floating_point_exception);
-    init_matrix(l_init, m_init);
 
-    unsigned *ipiv = NULL;
-    if (check)
-      save_matrix();
+  init_matrix(l_init, m_init);
 
-    if (display)
-      display_matrix(A, l, m, m, "A");
+  unsigned *ipiv = NULL;
+  if (check)
+    save_matrix();
 
-    ret = lu_decomposition(A, l, m, tile_size);
-  }
+  if (display)
+    display_matrix(A, l, m, m, "A");
+
+  ret = lu_decomposition(A, l, m, tile_size);
+
 	if (display)
     display_matrix(A, l, m, m, "A");
 

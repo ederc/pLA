@@ -91,6 +91,7 @@ else:
     threads.append(base**exp)
     exp += 1
 
+print(threads)
 #range of rows and columns if increasing size
 rowSizes  = list()
 colSizes  = list()
@@ -151,7 +152,7 @@ if int(args.inc) == -1:
     test_final = test_str_seq+' -l'+args.rowsa+' -m'+args.colsa
     test_final = test_final + ' -b'+str(args.blocksize)
     print(test_final+' >> '+bench_file)
-    os.system(test_final+' >> '+bench_file)
+    os.system('while [ 1 ]; do '+test_final+' >> '+bench_file+'&& break; done')
     print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
   #parallel computations
@@ -161,7 +162,7 @@ if int(args.inc) == -1:
   test_final = test_final + ' -b'+str(args.blocksize)
   for j in threads:
     print(test_final+' -t'+str(j)+' >> '+bench_file)
-    os.system(test_final+' -t'+str(j)+' >> '+bench_file)
+    os.system('while [ 1 ]; do '+test_final+' -t'+str(j)+' >> '+bench_file+'&& break; done')
     print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
   # starpu
@@ -169,7 +170,7 @@ if int(args.inc) == -1:
   test_final = test_final + ' -b'+str(args.blocksize)
   for j in threads:
     print(test_starpu_str+str(j)+' '+test_final+' >> '+bench_file)
-    os.system(test_starpu_str+str(j)+' '+test_final+' >> '+bench_file)
+    os.system('while [ 1 ]; do '+test_starpu_str+str(j)+' '+test_final+' >> '+bench_file+'&& break; done')
     print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
 # generate 10 random matrices without timestamp if increasing is done
@@ -206,7 +207,7 @@ else:
       str(colSizes[k])
       test_final = test_final + ' -b'+str(args.blocksize)
       print(test_final+' >> '+bench_file)
-      os.system(test_final+' >> '+bench_file)
+      os.system('while [ 1 ]; do '+test_final+' >> '+bench_file+'&& break; done')
       print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
   #parallel computations
@@ -217,7 +218,7 @@ else:
   test_final = test_final + ' -b'+str(args.blocksize)
   for j in threads:
     print(test_final+' -t'+str(max_threads)+' >> '+bench_file)
-    os.system(test_final+' -t'+str(max_threads)+' >> '+bench_file)
+    os.system('while [ 1 ]; do '+test_final+' -t'+str(max_threads)+' >> '+bench_file+'&& break; done')
     print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
   # starpu
@@ -226,7 +227,7 @@ else:
   test_final = test_final + ' -b'+str(args.blocksize)
   for j in threads:
     print(test_starpu_str+str(max_threads)+' '+test_final+' >> '+bench_file)
-    os.system(test_starpu_str+str(max_threads)+' '+test_final+' >> '+bench_file)
+    os.system('while [ 1 ]; do '+test_starpu_str+str(max_threads)+' '+test_final+' >> '+bench_file+'&& break; done')
     print('-- Done at '+time.strftime("%a, %d %b %Y %H:%M:%S"))
 
 ##############################################
