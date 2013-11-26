@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <assert.h>
 
@@ -72,6 +73,7 @@ static unsigned bound       = 0;
 static unsigned bounddeps   = 0;
 static unsigned boundprio   = 0;
 static unsigned no_prio     = 0;
+static unsigned keep_on     = 1;
 
 using namespace tbb;
 
@@ -115,6 +117,12 @@ static inline TYPE negInverseModP(TYPE a, TYPE prime) {
   return prime - x;
 }
 
+
+// signal handler
+void catch_floating_point_exception(int sig) {
+  keep_on = 1;
+  signal(sig, catch_floating_point_exception);
+}
 
 
 /*****************************************************************
@@ -920,16 +928,22 @@ int main(int argc, char *argv[]) {
     m +=  tile_size - (m % tile_size);
   }
 
-	init_matrix(l_init, m_init);
+  while (keep_on) {
+    // if a floating point exception happens the signal handler resets keep_on
+    // to 1
+    keep_on = 0;
+    signal (SIGFPE, catch_floating_point_exception);
+    init_matrix(l_init, m_init);
 
-	unsigned *ipiv = NULL;
-	if (check)
-		save_matrix();
+    unsigned *ipiv = NULL;
+    if (check)
+      save_matrix();
 
-	if (display)
-    display_matrix(A, l, m, m);
+    if (display)
+      display_matrix(A, l, m, m);
 
-	ret = lu_decomposition(A, l, m, tile_size);
+    ret = lu_decomposition(A, l, m, tile_size);
+  }
 	if (display)
     display_matrix(A, l, m, m);
 

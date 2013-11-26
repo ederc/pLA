@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <assert.h>
 #include <limits.h>
@@ -68,6 +69,7 @@ static unsigned bound       = 0;
 static unsigned bounddeps   = 0;
 static unsigned boundprio   = 0;
 static unsigned no_prio     = 0;
+static unsigned keep_on     = 1;
 
 
 static inline TYPE negInverseModP(TYPE a, TYPE prime) {
@@ -97,6 +99,12 @@ static inline TYPE negInverseModP(TYPE a, TYPE prime) {
     x                     +=  secondQuot * minusLastX;
   }
   return prime - x;
+}
+
+// signal handler
+void catch_floating_point_exception(int sig) {
+  keep_on = 1;
+  signal(sig, catch_floating_point_exception);
 }
 
 #define FPRINTF(ofile, fmt, ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ## __VA_ARGS__); }} while(0)
@@ -897,23 +905,29 @@ int main(int argc, char *argv[]) {
     m +=  tile_size - (m % tile_size);
   }
 
-	init_matrix(l_init, m_init);
+  while (keep_on) {
+    // if a floating point exception happens the signal handler resets keep_on
+    // to 1
+    keep_on = 0;
+    signal (SIGFPE, catch_floating_point_exception);
+    init_matrix(l_init, m_init);
 
-	unsigned *ipiv = NULL;
-	if (check)
-		save_matrix();
+    unsigned *ipiv = NULL;
+    if (check)
+      save_matrix();
 
-	if (display)
-    display_matrix(A, l, m, m, "A");
+    if (display)
+      display_matrix(A, l, m, m, "A");
 
-	if (bound)
-		starpu_bound_start(bounddeps, boundprio);
+    if (bound)
+      starpu_bound_start(bounddeps, boundprio);
 
-	if (profile)
-		starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
+    if (profile)
+      starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
 
 
-	ret = lu_decomposition(A, l, m, tile_size);
+    ret = lu_decomposition(A, l, m, tile_size);
+  }
 	if (display)
     display_matrix(A, l, m, m, "A");
 
