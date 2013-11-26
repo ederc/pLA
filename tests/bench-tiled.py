@@ -97,12 +97,12 @@ colSizes  = list()
 
 # list of all methods, sequential only if start_threads == 1
 if start_threads == 1:
-  methods = ['Raw sequential','StarPU','Intel TBB']
-  algorithm = ['elim-starpu','block-elim-tbb ']
-  algorithm_seq = ['seq -c']
+  methods = ['Sequential','StarPU','Intel TBB']
+  algorithm = ['elim-starpu ','block-elim-tbb ']
+  algorithm_seq = ['block-elim-seq ']
 else:
   methods = ['StarPU','Intel TBB']
-  algorithm = ['elim-starpu','block-elim-tbb ']
+  algorithm = ['elim-starpu ','block-elim-tbb ']
 
 # lists for all methods we have, those are lists of lists:
 # e.g. time_series[i] is a list of len(threads) elements of the timings
@@ -127,7 +127,7 @@ if not os.path.exists(folder_name):
 
 os.chdir(os.getcwd()+"/"+folder_name)
 
-test_str_seq    = os.getcwd()+'/../../src/block-seq'
+test_str_seq    = os.getcwd()+'/../../src/block-elim-seq'
 test_str_tbb    = os.getcwd()+'/../../src/block-elim-tbb'
 test_str_starpu = os.getcwd()+'/../../src/elim-starpu'
 test_starpu_str = 'STARPU_SCHED=dmda STARPU_NCPU='
@@ -273,12 +273,12 @@ if args.plot:
         tmp = i
     if l.find('Real time:') != -1:
       time_series[tmp].append(\
-          l.replace('Real time:','').replace('sec','').strip())
+          float(l.replace('Real time:','').replace('sec','').strip()))
     if l.find('GFLOPS/sec:') != -1:
       # if the value is inf for infinity due to short computation time, we set
       # the GFLOPS value to be -1
       gflops_series[tmp].append(\
-          l.replace('GFLOPS/sec:','').replace('inf','-1').strip())
+          float(l.replace('GFLOPS/sec:','').replace('inf','-1').strip()))
 
   if int(args.inc) == -1:
     timings_seq = list()
@@ -391,6 +391,7 @@ if args.plot:
   # granularity of the yaxis
   tmp_ticks = ax.yaxis.get_majorticklocs()
   granu = tmp_ticks[len(tmp_ticks)-1] / (len(tmp_ticks)-1) / 5
+  print(granu)
   ax.yaxis.set_minor_locator(MultipleLocator(granu))
   pl.tick_params(axis='both', which='major', labelsize=6)
   pl.tick_params(axis='both', which='minor', labelsize=6)

@@ -7,12 +7,13 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 AM_CPPFLAGS=-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_builddir)
 
-bin_PROGRAMS = 	\
-	mult-seq 			\
-	elim-seq	 		\
-	mult-omp 			\
-	elim-omp 			\
-	mult-pthrd	 	\
+bin_PROGRAMS = 		\
+	mult-seq 				\
+	elim-seq	 			\
+	block-elim-seq	\
+	mult-omp 				\
+	elim-omp 				\
+	mult-pthrd	 		\
 	elim-pthrd
 if ENABLE_KAAPIC
 bin_PROGRAMS += mult-kaapi
@@ -34,6 +35,9 @@ mult_seq_SOURCES= 	\
 elim_seq_CFLAGS= $(AM_CFLAGS)
 elim_seq_SOURCES= 	\
 	mat-elim-seq.c
+block_elim_seq_CFLAGS= $(AM_CFLAGS)
+block_elim_seq_SOURCES= 	\
+	block-mat-elim-seq.c
 
 mult_omp_CFLAGS= $(AM_CFLAGS) -fopenmp
 mult_omp_SOURCES=		\
@@ -95,6 +99,7 @@ DISTCLEANFILES=	\
 	mult-pthrd		\
 	mult-starpu		\
 	elim-seq			\
+	block-elim-seq\
 	block-elim-tbb\
 	elim-tbb			\
 	elim-omp			\

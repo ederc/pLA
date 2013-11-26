@@ -73,6 +73,7 @@ elim-kaapi
 elim-pthrd
 elim-starpu
 block-elim-tbb
+block-elim-seq
 tests/test*
 !tests/unit/Makefile.am
 !tests/unit/*.c
