@@ -11,7 +11,7 @@ import matplotlib
 # Force matplotlib to not use any Xwindows backend.
 matplotlib.use('Agg')
 import pylab as pl
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from matplotlib.ticker import LogLocator, MultipleLocator, FormatStrFormatter
 
 currentdir = os.getcwd()
 
@@ -198,21 +198,18 @@ print(threads)
 p = [[[None] for x in xrange(len(methods))] for y in xrange(len(files))]
 for j in range(0,len(files)):
   for i in range(0,len(methods)):
-    p[j][i], = ax.plot(threads[0:len(time_series[j][i])], time_series[j][i],
+    p[j][i], = ax.semilogy(threads[0:len(time_series[j][i])], time_series[j][i],
             c=coloring[j],
-      ls=styles[i], marker=markers[i], markersize='6', markevery=stride, label=i+j*len(methods))
+      ls=styles[i], marker=markers[i], markersize='6', markevery=stride,
+      label=i+j*len(methods), basey=2)
 # set 0 as min value for y and 1 as min value for x (threads)
 #pl.xlim(xmin=1)
-pl.ylim(ymin=0)
 ax.legend((labels),'upper right', shadow=True, fancybox=True)
 
 # take real time of sequential computation to figure out the 
 # granularity of the yaxis
-tmp_ticks = ax.yaxis.get_majorticklocs()
-granu = tmp_ticks[len(tmp_ticks)-1] / (len(tmp_ticks)-1) / 5
-ax.yaxis.set_minor_locator(MultipleLocator(granu))
-pl.tick_params(axis='both', which='major', labelsize=6)
-pl.tick_params(axis='both', which='minor', labelsize=6)
+pl.tick_params(axis='both', which='major', labelsize=8)
+pl.tick_params(axis='both', which='minor', labelsize=8)
 
 pl.savefig('timings-plot.pdf',papertype='a4',orientation='landscape')
 
@@ -249,26 +246,19 @@ ax.xaxis.set_ticklabels(tick_lbs)
 p = [[[None] for x in xrange(len(methods))] for y in xrange(len(files))]
 for j in range(0,len(files)):
   for i in range(0,len(methods)):
-    p[j][i], = ax.plot(threads[0:len(gflops_series[j][i])], gflops_series[j][i],
+    p[j][i], = ax.semilogy(threads[0:len(gflops_series[j][i])], gflops_series[j][i],
             c=coloring[j],
       ls=styles[i], marker=markers[i], markersize='6', markevery=stride,
-      label=i+j*len(methods))
+      label=i+j*len(methods), basey=2)
 # set 0 as min value for y and 1 as min value for x (threads)
 #pl.xlim(xmin=1)
 pl.ylim(ymin=0)
 ax.legend((labels),'upper left', shadow=True, fancybox=True)
-
-# take gflops of best computation to figure out the 
+# take real time of sequential computation to figure out the 
 # granularity of the yaxis
-tmp_ticks = ax.yaxis.get_majorticklocs()
-# note that here "abs()" is needed since if computations are too fast we
-# set GFLOPS to -1 instead of infinity. Since the MultipleLocator must
-# be set to a positive integer value, we have to take care of this case.
-granu = abs(tmp_ticks[len(tmp_ticks)-1]) / (len(tmp_ticks)-1) / 5
-ax.yaxis.set_minor_locator(MultipleLocator(granu))
+pl.tick_params(axis='both', which='major', labelsize=8)
+pl.tick_params(axis='both', which='minor', labelsize=8)
 
-pl.tick_params(axis='both', which='major', labelsize=6)
-pl.tick_params(axis='both', which='minor', labelsize=6)
 
 pl.savefig('gflops-plot.pdf',papertype='a4',orientation='landscape')
 
@@ -305,25 +295,16 @@ ax.xaxis.set_ticklabels(tick_lbs)
 p = [[[None] for x in xrange(len(methods))] for y in xrange(len(files))]
 for j in range(0,len(files)):
   for i in range(0,len(methods)):
-    p[j][i], = ax.plot(threads[0:len(speedup_series[j][i])],
+    p[j][i], = ax.semilogy(threads[0:len(speedup_series[j][i])],
             speedup_series[j][i], c=coloring[j],
       ls=styles[i], marker=markers[i], markersize='6', markevery=stride,
-      label=i+j*len(methods))
+      label=i+j*len(methods), basey=2)
 # set 0 as min value for y and 1 as min value for x (threads)
 #pl.xlim(xmin=1)
-pl.ylim(ymin=0)
+pl.ylim(bottom=-2)
 ax.legend((labels),'upper left', shadow=True, fancybox=True)
 
-# take gflops of best computation to figure out the 
-# granularity of the yaxis
-tmp_ticks = ax.yaxis.get_majorticklocs()
-# note that here "abs()" is needed since if computations are too fast we
-# set GFLOPS to -1 instead of infinity. Since the MultipleLocator must
-# be set to a positive integer value, we have to take care of this case.
-granu = abs(tmp_ticks[len(tmp_ticks)-1]) / (len(tmp_ticks)-1) / 5
-ax.yaxis.set_minor_locator(MultipleLocator(granu))
-
-pl.tick_params(axis='both', which='major', labelsize=6)
-pl.tick_params(axis='both', which='minor', labelsize=6)
+pl.tick_params(axis='both', which='major', labelsize=8)
+pl.tick_params(axis='both', which='minor', labelsize=8)
 
 pl.savefig('speedup-plot.pdf',papertype='a4',orientation='landscape')

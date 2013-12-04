@@ -375,8 +375,8 @@ if args.plot:
 
   p = [None]*len(methods)
   for i in range(0,len(methods)):
-    p[i], = ax.plot(data[0:len(time_series[i])], time_series[i], c=coloring[i],
-        ls=styles[i], marker=markers[i], markersize=8, label=i)
+    p[i], = ax.semilogy(data[0:len(time_series[i])], time_series[i], c=coloring[i],
+        ls=styles[i], marker=markers[i], markersize=8, label=i, basey=2)
   # set 0 as min value for y and 1 as min value for x (data)
   #pl.xlim(xmin=1)
   pl.ylim(ymin=0)
@@ -387,9 +387,13 @@ if args.plot:
 
   # take real time of sequential computation to figure out the 
   # granularity of the yaxis
-  tmp_ticks = ax.yaxis.get_majorticklocs()
-  granu = tmp_ticks[len(tmp_ticks)-1] / (len(tmp_ticks)-1) / 5
-  ax.yaxis.set_minor_locator(MultipleLocator(granu))
+  ax.yaxis.get_major_locator().base(2)
+  ax.yaxis.get_minor_locator().base(2)
+  ax.yaxis.get_minor_locator().subs([1])
+  ax.yaxis.get_major_formatter().base(2)
+  #tmp_ticks = ax.yaxis.get_majorticklocs()
+  #granu = tmp_ticks[len(tmp_ticks)-1] / (len(tmp_ticks)-1) / 5
+  #ax.yaxis.set_minor_locator(MultipleLocator(granu))
   pl.tick_params(axis='both', which='major', labelsize=6)
   pl.tick_params(axis='both', which='minor', labelsize=6)
 
